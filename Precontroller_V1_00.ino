@@ -1,7 +1,7 @@
 /* letzte Aenderung: 22.01.2020: Pedal-Erkennung funktioniert
  * 21.01.2020: Display-Ansteuerung Funktioniert
-   V1.00: Neue Version fï¿½r neue Hardware
-	nur Pin 2 und 3 kï¿½nnen flanken-interrupts */
+   V1.00: Neue Version fuer neue Hardware
+	nur Pin 2 und 3 koennen flanken-interrupts */
 
 #include "Arduino.h"
 #include <Wire.h>
@@ -38,7 +38,7 @@ U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(A5, A4);
 #define RLOWER 2.2
 #define REFVOLT 5.00
 
-// Undervoltage-Grenzen fï¿½r Batterie:
+// Undervoltage-Grenzen fuer Batterie:
 #define UNDERVOLTAGE_9S 3.4*9.0
 #define UNDERVOLTAGE_6S 3.4*6.0
 #define UNDERVOLTAGE_10S 3.4*10.0
@@ -46,16 +46,16 @@ U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(A5, A4);
 // Grenze zur Erkennung 6s vs. 9s Batterie
 #define BAT6S9S_GRENZE 27.0
 
-//Pins fï¿½r Ein- und Ausgï¿½nge
+//Pins fuer Ein- und Ausgaenge
 #define INPUT_PAS 3
 
 #define INPUT_TASTER1 2
-#define INPUT_TASTER2 4		// -> Taster2 ï¿½blicherweise fï¿½r Licht?
+#define INPUT_TASTER2 4		// -> Taster2 ueblicherweise fuer Licht?
 #define INPUT_3W_SW_RED 6
 #define INPUT_3W_SW_GREEN 7
 #define OUTPUT_THROTTLE 5
 #define OUTPUT_DISPLAY_SUPPLY 8
-#define OUTPUT_LIGHT_SWITCH 9
+#define OUTPUT_LIGHT 9
 #define INPUT_BATSENSE 6
 #define LED 13
 
@@ -67,16 +67,21 @@ U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(A5, A4);
 #define MOTOR_POLE_PAIRS 	10
 #define MOTOR_GEAR_RATIO 	4.42
 //Radumfang in Metern
-//fï¿½r 28 Zoll (Schwalbe Marathon)
+//fuer 28 Zoll (Schwalbe Marathon)
 #define RADUMFANG 			2.155
 
-//fï¿½r 26 Zoll
+//fuer 26 Zoll (Big Apple 2,15)
 //#define RADUMFANG			2.130
 
-// Maximale Geschwindigkeit fï¿½r Unterstï¿½tzung
-#define MAX_SPEED_KMH 		15
+// Maximale Geschwindigkeit fuer Unterstuetzung
+#define MAX_SPEED_KMH 		27
 #define MAX_RPM 			(MAX_SPEED_KMH*1000)/(RADUMFANG*60)
 #define MAX_ERPM			MAX_RPM*MOTOR_POLE_PAIRS*MOTOR_GEAR_RATIO
+
+//Max ERPM (für VESC Konfiguration):
+//für VMAX = 27km/h
+//26 Zoll : ERPM_max = 9340
+//28 Zoll : ERPM_max = 9230
 
 
 // Geschwindigkeits-Stufen Ausgangsspannungen
@@ -92,27 +97,29 @@ U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(A5, A4);
 
 #define SCHIEBEHILFE STUFE1_V
 
-// Strom-Stufen fï¿½r VESC
-#define STUFE5_I 20
-#define STUFE4_I 15
-#define STUFE3_I 10
-#define STUFE2_I 6
-#define STUFE1_I 3
+// Strom-Stufen fuer VESC
+#define STUFE5_I 30
+#define STUFE4_I 20
+#define STUFE3_I 14
+#define STUFE2_I 8
+#define STUFE1_I 4
 
 #define DEFAULT_STUFE 1
 
-// Zeitfenster fï¿½r Tastereingabe in ms
+// Zeitfenster fuer Tastereingabe in ms
 #define TASTER_TIME_WINDOW 500
 
-// Werte fï¿½r Pedalsensierung:
-#define PAS_MAGNETS 12			// Anzahl an Magneten in Scheibe
+// Werte fuer Pedalsensierung:
+#define PAS_MAGNETS 10			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12
 
-#define MIN_CADENCE	20				// Minimale Kadenz (Kurbelumdrehungen pro Minute) fï¿½r Unterstï¿½tzung
+#define MIN_CADENCE	20				// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
 
 #define CONV_PAS_TIME_TO_CADENCE 60000/PAS_MAGNETS
 
-//Haltezeit fï¿½r Pedalsensierung in ms -> Berechnet aus Anzahl an Magneten und minimaler Kadenz
+//Haltezeit fuer Pedalsensierung in ms -> Berechnet aus Anzahl an Magneten und minimaler Kadenz
 #define PAS_TIMEOUT CONV_PAS_TIME_TO_CADENCE/MIN_CADENCE
+
+#define PAS_FACTOR_MIN	120
 
 // 10ms Timer
 #define FAST_TIMER 10
@@ -125,7 +132,7 @@ U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(A5, A4);
 // Taster-Entprellzeit in ms
 #define ENTPRELLZEIT 5
 
-//fï¿½r Display
+//fuer Display
 //#define DRAW_DELAY 118
 //#define D_NUM 47
 
@@ -146,6 +153,11 @@ bool vesc_connection_error = false;
 
 bool led_state;
 
+bool socFlag40;
+bool socFlag30;
+bool socFlag20;
+//bool socFlag10;
+
 bool pipapo = 0;
 
 uint8_t numberOfCells = 9;
@@ -153,6 +165,8 @@ float voltageArdu = 0.0;
 float voltageVesc = 0.0;
 float avgCellVolt = 0.0;
 uint8_t SOC = 0;
+
+float velocity = 0.0;
 
 
 /*struct vescDataStruct
@@ -210,6 +224,7 @@ struct throttleControlStruct
 
 
 //Variables for PAS
+	const bool doubleHall = false;
 	uint16_t pasTimeHigh = 0;
 	uint16_t pasTimeLow = 0;
 	unsigned long last_pas_event = 0;
@@ -219,11 +234,11 @@ struct throttleControlStruct
 	uint16_t cadence = 0;
     bool pedaling = false;
 
-// Anlegen der benï¿½tigten Structs
+// Anlegen der benuetigten Structs
 throttleControlStruct throttleControl;
 
 
-//ISR fï¿½r PAS
+//ISR fuer PAS
 void pas_ISR()
 {
 	if(last_pas_event > (millis()-ENTPRELLZEIT)){
@@ -240,9 +255,31 @@ void pas_ISR()
 	cadence = CONV_PAS_TIME_TO_CADENCE/(pasTimeLow+pasTimeHigh);
 
 	pas_factor = 100*pasTimeHigh/pasTimeLow;
-	if(cadence>MIN_CADENCE){
-		pedaling = true;
+	if(doubleHall == false)
+	{	// wenn man keinen Double-Hall-Sensor hat muss man den PAS-Faktor mit einbeziehen
+		if(cadence>=MIN_CADENCE && pas_factor > PAS_FACTOR_MIN)
+		{
+			pedaling = true;
+		}
+		else
+		{
+			pedaling = false;
+		}
 	}
+	else
+	{
+		// mit Double-Hall-Sensor muss man nur die Cadence überprüfen
+		if(cadence>=MIN_CADENCE)
+		{
+			pedaling = true;
+		}
+		else
+		{
+			pedaling = false;
+
+		}
+	}
+
 }
 
 /*void taster_ISR()
@@ -256,7 +293,7 @@ void checkTaster()
 	//Taster1 abfragen
  /*temp_bool = digitalRead(INPUT_TASTER1);
   if(temp_bool!=taster1.state && temp_bool == false)
-  {		//fallende Flanke -> wurde gerade gedrï¿½ckt
+  {		//fallende Flanke -> wurde gerade gedrueckt
 	  taster1.edges++;
 	  taster1.lastEvent = milliseconds;
   }
@@ -272,7 +309,7 @@ void checkTaster()
 	  if(temp_bool==false)
 	  {
 		  if(taster2_state == true)
-		  {//fallende Flanke -> wurde gerade gedrï¿½ckt
+		  {//fallende Flanke -> wurde gerade gedrueckt
 			  taster2_edges++;
 		  }
 		  taster2_state = temp_bool;
@@ -281,12 +318,12 @@ void checkTaster()
   // 3W Rot-Taster abfragen
 test1 = digitalRead(INPUT_3W_SW_RED);
 
-  // 3W-Grï¿½n-Taster abfragen
+  // 3W-Green-Taster abfragen
   temp_bool = digitalRead(INPUT_3W_SW_GREEN);
   if(temp_bool == false)
   {
 	  if(switchGreen_state == true)
-	  {//fallende Flanke -> wurde gerade gedrï¿½ckt
+	  {//fallende Flanke -> wurde gerade gedrueckt
 		  switchGreen_edges++;
 		  switchGreen_state = temp_bool;
 	  }
@@ -305,7 +342,7 @@ void readBattVolt()
 // 1ms-Timer-ISR
 /*void timer1_ISR()
 {
-	// Variable fï¿½r zweiten und dritten Timer hochzï¿½hlen
+	// Variable fuer zweiten und dritten Timer hochzaehlen
 	fastTimerVariable++;
 	slowTimerVariable++;
 	ultraslowTimerVariable++;
@@ -315,7 +352,7 @@ void readBattVolt()
   {
 	  //Flag setzen
 	  fastTimerFlag = true;
-      // Timer zurï¿½cksetzen
+      // Timer zuruecksetzen
       fastTimerVariable = 0;
   }
 
@@ -344,7 +381,7 @@ void readBattVolt()
 
 void calculateSOC()
 {
-	/*Wertetabelle fï¿½r SOC Berechnung
+	/*Wertetabelle fuer SOC Berechnung
 	 * Spannung		Prozent
 	 * >4.08V		100
 	 * >4.06		95
@@ -454,6 +491,18 @@ void calculateSOC()
 		SOC = 0;
 	}
 
+	if(SOC<=40)
+	{
+		socFlag40=true;
+		if(SOC<=30)
+		{
+			socFlag30=true;
+			if(SOC<=20)
+			{
+				socFlag20=true;
+			}
+		}
+	}
 }
 
 void setThrottlePWM()
@@ -464,6 +513,7 @@ void setThrottlePWM()
 
 }
 
+// Das ist der Quellcode aus der Adafruit Library
 /*void refreshDisplay()
 {
 	  display.clearDisplay();
@@ -517,11 +567,9 @@ void setThrottlePWM()
 		  /*display.print("P=");
 		  display.print("100");
 		  display.print("W");
-		  //Unterstï¿½tzungsstufe ausgeben:
+		  //Unterstuetzungsstufe ausgeben:
 		  display.print("St ");
 		  display.print(throttleControl.aktStufe);
-
-
 	  }
 
 	  else{
@@ -543,7 +591,7 @@ void setThrottlePWM()
 			  display.println("not pedaling");
 		  }
 
-		  //Unterstï¿½tzungsstufe ausgeben:
+		  //Unterstuetzungsstufe ausgeben:
 		  display.print("Stufe ");
 		  display.println(throttleControl.aktStufe);
 
@@ -578,34 +626,35 @@ void refreshu8x8Display()
 		  {
 			  u8x8.println("not pedaling");
 		  }
+		  u8x8.println(pas_factor);
 
-		  //Unterstï¿½tzungsstufe ausgeben:
+		  //Unterstuetzungsstufe ausgeben:
 		  u8x8.print("Stufe ");
 		  u8x8.println(throttleControl.aktStufe);
 
 		  //Zeile 2:
 		  //MOTOR Strom ausgeben
 		  //display.print("Im=");
-		  u8x8.print(UART.data.avgMotorCurrent);
+		  /*u8x8.print(UART.data.avgMotorCurrent);
 		  u8x8.print("A ");
 		  //Akkustrom ausgeben:
 		  //display.print(" Ibat=");
 		  u8x8.print(UART.data.avgInputCurrent);
-		  u8x8.println("A");
+		  u8x8.println("A");*/
 
 		  //Zeile 3:
 		  //ERPM ausgeben:
-		  u8x8.print(UART.data.rpm);
-		  u8x8.print("rpm ");
+		  u8x8.print((int)UART.data.rpm);
+		  u8x8.println(" RPM ");
 		  //Geschwindigkeit Ausgeben:
-		  u8x8.print((UART.data.rpm*RADUMFANG/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/60000));
+		  u8x8.print(velocity);
 		  u8x8.println("km/h");
 
 		  //Zeile 4:
 		  //Leistung ausgeben:
-		  u8x8.print("P=");
+		  /*u8x8.print("P=");
 		  u8x8.print("100");
-		  u8x8.print("W");
+		  u8x8.print("W");*/
 
 
 
@@ -631,8 +680,9 @@ void refreshu8x8Display()
 		  {
 			  u8x8.println("not pedaling");
 		  }
+		  u8x8.println(pas_factor);
 
-		  //Unterstï¿½tzungsstufe ausgeben:
+		  //Unterstuetzungsstufe ausgeben:
 		  u8x8.print("Stufe ");
 		  u8x8.println(throttleControl.aktStufe);
 
@@ -643,7 +693,7 @@ void refreshu8x8Display()
 void setup() {
   // put your setup code here, to run once:
 
-	// Pin A4 als Ausgang einstellen (fï¿½r I2C)
+	// Pin A4 als Ausgang einstellen (fuer I2C)
 	pinMode(PIN_A4, OUTPUT);
 	digitalWrite(PIN_A4, 0);
 
@@ -658,21 +708,24 @@ void setup() {
 
 	//3W-Switch-Rot-Eingang:
 	pinMode(INPUT_3W_SW_RED, INPUT_PULLUP);
-	//3W-Switch-Grï¿½n-Eingang:
+	//3W-Switch-Green-Eingang:
 	pinMode(INPUT_3W_SW_GREEN, INPUT_PULLUP);
 
 	//Throttle PWM-Output:
 	pinMode(OUTPUT_THROTTLE, OUTPUT);
 
-	//fï¿½r Display:
+	//fuer Display:
 	//Display-Versorgung einschalten:
 	pinMode(OUTPUT_DISPLAY_SUPPLY, OUTPUT);
 	digitalWrite(OUTPUT_DISPLAY_SUPPLY, LOW);
 
+	//Licht-Ausgang konfigurieren (und gleich anschalten)
+	pinMode(OUTPUT_LIGHT, OUTPUT);
+	digitalWrite(OUTPUT_LIGHT, HIGH);
+
 	//LED auf ArduinoNano Pin 13
 	pinMode(LED, OUTPUT);
 	digitalWrite(LED, LOW);
-
 
 	// initialize with the I2C addr 0x3C / mit I2C-Adresse 0x3c initialisieren
 	//display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -681,7 +734,7 @@ void setup() {
 
     u8x8.setFont(u8x8_font_chroma48medium8_r);
 
-	// Zellspannung einmal abfragen fï¿½r 6s-9s-Erkennung:
+	// Zellspannung einmal abfragen fuer 6s-9s-Erkennung:
 	readBattVolt();
 	if (voltageArdu > BAT6S9S_GRENZE)
 	{
@@ -696,10 +749,10 @@ void setup() {
 	began running the current program. This number will overflow (go back to zero), after approximately 50 days. */
 	milliseconds = millis();
 
-	// Interrupt fï¿½r PAS konfigurieren
+	// Interrupt fuer PAS konfigurieren
 	attachInterrupt(digitalPinToInterrupt(INPUT_PAS), pas_ISR, CHANGE);
 
-	// falling-edge interrupt fï¿½r Taster konfigurieren	-> TODO
+	// falling-edge interrupt fuer Taster konfigurieren	-> TODO
 	//attachInterrupt(digitalPinToInterrupt(INPUT_TASTER1), taster_ISR, FALLING);
 
 	//Timer initialisieren auf 1ms (1000us) um zyklisch abzufragen etc:
@@ -729,7 +782,7 @@ void setup() {
 		}
 	}
 
-	//wenn kein Vesc dran hï¿½ngt serielle Schnittstelle beenden
+	//wenn kein Vesc dran huengt serielle Schnittstelle beenden
 	if(vesc_connected == false)
 	{
 		Serial.end();
@@ -787,7 +840,7 @@ void loop() {
 	  // 3W Rot-Taster abfragen
 	//switchRed.state = digitalRead(INPUT_3W_SW_RED);
 
-	  // 3W-Grï¿½n-Taster abfragen
+	  // 3W-Gruen-Taster abfragen
 	  //switchGreen_state = digitalRead(INPUT_3W_SW_GREEN);
 	}
 
@@ -811,11 +864,12 @@ void loop() {
 
 	  //Batteriespannung auslesen
 	  readBattVolt();
+	  calculateSOC();
 
 	  //Taster auswerten:
 	  if(switchRed_edges>0)
 	  {
-		  //Unterstï¿½tzung hochschalten
+		  //Unterstuetzung hochschalten
 		  if(throttleControl.aktStufe < 5)
 		  {
 			  throttleControl.aktStufe++;
@@ -827,7 +881,7 @@ void loop() {
 		  switchRed_edges = 0;
 	  }
 	  if(switchGreen_edges>0){
-		  //Unterstï¿½tzung runterschalten
+		  //Unterstuetzung runterschalten
 		  if(throttleControl.aktStufe > 0)
 		  {
 			  throttleControl.aktStufe--;
@@ -838,7 +892,6 @@ void loop() {
 		  }
 		  switchGreen_edges = 0;
 	  }
-
 
 
 	  if(vesc_connected)
@@ -862,16 +915,39 @@ void loop() {
 
 	  if(vesc_connected)
 	  {
+		  velocity = UART.data.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
 		  if(pedaling == true)
 		  {
 			  // Stromsollwert bestimmen
 			  throttleControl.current = (float)stufenI[throttleControl.aktStufe];
+			  //Abregeln bei niedrigem SOC
+			  if(socFlag20)
+			  {
+				  throttleControl.current = throttleControl.current*0.25;
+			  }
+			  else if(socFlag30)
+			  {
+				  throttleControl.current = throttleControl.current*0.5;
+			  }
+			  else if(socFlag40)
+			  {
+				  throttleControl.current = throttleControl.current*0.75;
+			  }
+
+			  //gar keine Unterstützung bei SOC Null, aber ohne Latch
+			  if(SOC==0)
+			  {
+				  throttleControl.current = 0.0;
+			  }
 
 			//Geschwindigkeitsgrenze:
 			 if(UART.data.rpm > 0.9*MAX_ERPM)
-			{
-			 //throttleControl.current = (1.0-(UART.data.rpm-0.9*MAX_ERPM)/(0.2*MAX_ERPM))*throttleControl.current;
-			 //throttleControl.current = 0.0;
+			 {
+				 throttleControl.current = (1.0-(UART.data.rpm-0.9*MAX_ERPM)/(0.2*MAX_ERPM))*throttleControl.current;
+				 if(throttleControl.current < 0.0)
+				 {
+					 throttleControl.current = 0.0;
+				 }
 			 }
 	  	  }
 		  else
@@ -880,15 +956,12 @@ void loop() {
 		  }
 		  UART.setCurrent(throttleControl.current);
 	  }
-
-	  //refreshDisplay();*/
   }
 
 	// ultra-langsame Routine
 	if((milliseconds - lastUltraSlowLoop) > ULTRA_SLOW_TIMER)
 	//if(ultraslowTimerFlag)
 	{
-
 		ultraslowTimerFlag = false;
 		refreshu8x8Display();
 		lastUltraSlowLoop = millis();
