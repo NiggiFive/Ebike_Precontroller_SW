@@ -127,6 +127,15 @@ float voltageVesc = 0.0;
 float avgCellVolt = 0.0;
 uint8_t SOC = 0;
 
+//fuer Undervoltage-Regler
+/*float undervoltage_reg_out;
+float undervoltage_reg_prop;
+float undervoltage_reg_int;
+float undervoltage_reg_diff;
+
+const int undervoltage_reg_pterm = 3;
+const float undervoltage_reg_iterm = 0.1;*/
+
 
 int velocity = 0;
 float undervoltageThreshold;
@@ -939,6 +948,9 @@ void loop() {
 	  {
 		  voltageVesc = UART.data.inpVoltage;
 		  //wenn die Eingangsspannung unter die Grenze sinkt -> Unterstützungsstufe zurückschalten
+
+		  //Undervoltage-Regulator
+
 		  if(voltageVesc < undervoltageThreshold)
 		  {
 			  if(throttleControl.aktStufe > 0)

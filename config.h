@@ -36,9 +36,9 @@
 //#define DISPLAY_CONNECTED
 
 // Undervoltage-Grenzen fuer Batterie:
-#define UNDERVOLTAGE_9S 3.5*9.0
-#define UNDERVOLTAGE_6S 3.5*6.0
-#define UNDERVOLTAGE_10S 3.5*10.0
+#define UNDERVOLTAGE_9S 3.25*9.0
+#define UNDERVOLTAGE_6S 3.25*6.0
+#define UNDERVOLTAGE_10S 3.25*10.0
 
 
 // Werte fuer Pedalsensierung:
@@ -56,7 +56,7 @@
 #define STUFE5_I 30
 #define STUFE4_I 20
 #define STUFE3_I 15
-#define STUFE2_I 8
-#define STUFE1_I 4
+#define STUFE2_I 10
+#define STUFE1_I 6 		// 4A war ziemlich wenig
 
 #endif /* CONFIG_H_ */
