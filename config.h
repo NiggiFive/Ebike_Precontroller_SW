@@ -36,8 +36,8 @@
 //#define DISPLAY_CONNECTED
 
 // Undervoltage-Grenzen fuer Batterie:
-#define UNDERVOLTAGE_9S 3.25*9.0
-#define UNDERVOLTAGE_6S 3.25*6.0
+#define UNDERVOLTAGE_9S 3.5*9.0
+#define UNDERVOLTAGE_6S 3.5*6.0
 #define UNDERVOLTAGE_10S 3.25*10.0
 
 
@@ -51,11 +51,12 @@
 // Zeit, nach der beim aufhören zu Pedalieren die Utnerstuetzungsstufe wieder auf den default-Wert zurückgesetzt wird in Millisekunden
 #define TIME_TO_RESET_AFTER_PEDAL_STOP	10000
 
+#define ANZAHL_STUFEN	4
 
 // Strom-Stufen fuer VESC
-#define STUFE5_I 30
-#define STUFE4_I 20
-#define STUFE3_I 15
+//#define STUFE5_I 30
+#define STUFE4_I 30
+#define STUFE3_I 20
 #define STUFE2_I 10
 #define STUFE1_I 6 		// 4A war ziemlich wenig
 

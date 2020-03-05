@@ -5,6 +5,8 @@
 
 #include "config.h"
 #include "Arduino.h"
+
+#include "MemoryFree.h"
 #include <Wire.h>
 //#include "Adafruit_GFX.h"
 //#include "Adafruit_SSD1306.h"
@@ -21,7 +23,6 @@ VescUart UART;
 // Fuer Display
 //#define OLED_RESET 4 // not used / nicht genutzt bei diesem Display
 //Adafruit_SSD1306 display(OLED_RESET);
-
 
 
 //#define DISPLAY_CONNECTED		//uncomment if no Display Connected
@@ -71,7 +72,7 @@ VescUart UART;
 
 #define SCHIEBEHILFE STUFE1_V
 
-#define DEFAULT_STUFE 2
+#define DEFAULT_STUFE 0
 
 // Zeitfenster fuer Tastereingabe in ms
 #define TASTER_TIME_WINDOW 500
@@ -92,6 +93,8 @@ VescUart UART;
 // Entprellzeit für PAS (und evtl. Taster) in ms
 #define ENTPRELLZEIT 5
 
+#define MAX_STROMSTEIGUNG	1.0
+
 //fuer Display
 //#define DRAW_DELAY 118
 //#define D_NUM 47
@@ -102,7 +105,7 @@ U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(A5, A4);
 #endif
 
 //const float stufenV [6] = {0.0, STUFE1_V, STUFE2_V, STUFE3_V, STUFE4_V, STUFE5_V};
-int stufenI [6] = {0, STUFE1_I, STUFE2_I, STUFE3_I, STUFE4_I, STUFE5_I};
+int stufenI [ANZAHL_STUFEN+1] = {0, STUFE1_I, STUFE2_I, STUFE3_I, STUFE4_I};
 
 unsigned long milliseconds;
 
@@ -111,8 +114,6 @@ int temp_int;
 uint8_t displayCounter;
 
 bool temp_bool;
-
-float temp_float;
 
 bool vesc_connected = false;
 bool vesc_connection_error = false;
@@ -128,17 +129,24 @@ float avgCellVolt = 0.0;
 uint8_t SOC = 0;
 
 //fuer Undervoltage-Regler
-/*float undervoltage_reg_out;
+float undervoltage_reg_out;
 float undervoltage_reg_prop;
 float undervoltage_reg_int;
 float undervoltage_reg_diff;
 
 const int undervoltage_reg_pterm = 3;
-const float undervoltage_reg_iterm = 0.1;*/
+const float undervoltage_reg_iterm = 0.1;
 
+//fuer Geschwindigkeits-Regler
+const int vmax = 27;
+const int vgrenz = 18;
+float vreg_out = 0.0;
 
-int velocity = 0;
+float v_ist = 0.0;
 float undervoltageThreshold;
+
+float batteryCurrent = 0.0;
+int drawnCharge = 0.0;
 
 
 /*struct vescDataStruct
@@ -157,7 +165,8 @@ float undervoltageThreshold;
 struct throttleControlStruct
 {
   int aktStufe = DEFAULT_STUFE;
-  float current = 0.0;
+  float current_next = 0.0;
+  float current_now = 0.0;
   float throttleVoltage = 0.0;
 };
 
@@ -196,13 +205,14 @@ struct throttleControlStruct
 
 
 //Variables for PAS
+	const uint8_t pas_allowed_fails = 1;
 	const bool doubleHall = DOUBLE_HALL;
 	uint16_t pasTimeHigh = 0;
 	uint16_t pasTimeLow = 0;
 	unsigned long last_pas_event = 0;
 	bool pas_status = false;
 	uint16_t pas_factor = 0;
-	uint16_t pas_failtime = 0;
+	uint16_t pas_fails;
 	uint16_t cadence = 0;
     bool pedaling = false;
 
@@ -214,15 +224,18 @@ throttleControlStruct throttleControl;
 //ISR fuer PAS
 void pas_ISR()
 {
-	if(last_pas_event > (millis()-ENTPRELLZEIT)){
+	if(last_pas_event > (millis()-ENTPRELLZEIT))
+	{
 		//Entprellung
 		return;
 	}
 	pas_status = digitalRead(INPUT_PAS);
-	if(pas_status == true){
+	if(pas_status == true)
+	{
 		pasTimeLow = millis()-last_pas_event;
 	}
-	else{
+	else
+	{
 		pasTimeHigh = millis()-last_pas_event;
 	}
 	last_pas_event = millis();
@@ -238,15 +251,20 @@ void pas_ISR()
 		if(cadence>=MIN_CADENCE && pas_factor > PAS_FACTOR_MIN)
 		{
 			pedaling = true;
+			pas_fails = 0;
 		}
 		else
 		{
-			if(pedaling == true)
+			pas_fails++;
+			if(pas_fails > pas_allowed_fails)
 			{
-				lastTimePedaling = millis();
+				if(pedaling == true)
+				{
+					lastTimePedaling = millis();
+				}
+				pedaling = false;
+				//pas_factor = 0;
 			}
-			pedaling = false;
-			//pas_factor = 0;
 		}
 	}
 	else
@@ -376,7 +394,14 @@ void calculateSOC()
 	 * >3.68		5
 	 * <3.68		0
 	 */
-	avgCellVolt = voltageVesc/numberOfCells;
+	if(vesc_connected)
+	{
+		avgCellVolt = voltageVesc/numberOfCells;
+	}
+	else
+	{
+		avgCellVolt = voltageArdu/numberOfCells;
+	}
 	int temp = (int)(avgCellVolt*1000.0);
 	if(temp > 4080)
 	{
@@ -562,120 +587,64 @@ void setThrottlePWM()
 #ifdef DISPLAY_CONNECTED
 void refreshu8x8Display()
 {
-	  //u8x8.clearDisplay();
-
-	  if(vesc_connected)
+	  if(displayCounter == 0)
 	  {
-
-		  if(displayCounter == 0)
-			  {
-			  u8x8.home();
-			  //Zeile 1:
-			  //Batteriespannung ausgeben
-			  u8x8.clearLine(0);
-			  u8x8.clearLine(1);
-			  u8x8.print(UART.data.inpVoltage);
-			  u8x8.print("V ");
-			  //SOC Ausgeben
-			  u8x8.print(SOC);
-			  u8x8.println("%");
-			  }
-
-		  if(displayCounter == 1)
-		  {
-			  u8x8.clearLine(2);
-			  u8x8.clearLine(3);
-			  //Pedaling?
-			  if(pedaling)
-			  {
-				  u8x8.drawString(0,2,"pedaling");
-			  }
-			  else
-			  {
-				  u8x8.drawString(0,2,"not pedaling");
-			  }
-		  }
-
-		  else if (displayCounter == 2)
-		  {
-			  u8x8.clearLine(4);
-			  u8x8.clearLine(5);
-			  u8x8.setCursor(0,4);
-			  u8x8.print(pas_factor);
-			  u8x8.print(" ");
-			  u8x8.print(velocity);
-			  u8x8.println("km/h");
-
-		  }
-
-		  else if (displayCounter == 3)
-		  {
-			  u8x8.clearLine(6);
-			  u8x8.clearLine(7);
-			  //Unterstuetzungsstufe ausgeben:
-			  u8x8.print("Stufe ");
-			  u8x8.println(throttleControl.aktStufe);
-		  }
-
-		  //Zeile 2:
-		  //MOTOR Strom ausgeben
-		  //display.print("Im=");
-		  /*u8x8.print(UART.data.avgMotorCurrent);
-		  u8x8.print("A ");^
-		  //Akkustrom ausgeben:
-		  //display.print(" Ibat=");
-		  u8x8.print(UART.data.avgInputCurrent);
-		  u8x8.println("A");*/
-
-		  //Zeile 3:
-		  //ERPM ausgeben:
-		  /*u8x8.print((int)UART.data.rpm);
-		  u8x8.println(" RPM ");
-		  //Geschwindigkeit Ausgeben:
-		  u8x8.print(velocity);
-		  u8x8.println("km/h");*/
+		  u8x8.home();
+		  u8x8.clearLine(0);
+		  u8x8.clearLine(1);
+		  //Zeile 1:
+		  u8x8.print(("FreeRAM: "));
+		  u8x8.print(freeMemory());
 	  }
 
-	  else{
-		  if(displayCounter == 0)
+	  else if (displayCounter == 1)
+	  {
+		  // Zeile 2:
+		  u8x8.clearLine(2);
+		  u8x8.clearLine(3);
+		  u8x8.setCursor(0,2);
+		  if(vesc_connected)
 		  {
-			  u8x8.home();
-			  //Zeile 1:
-			  //Batteriespannung ausgeben
-			  u8x8.print(voltageArdu);
-			  u8x8.print("V  ");
-			  //SOC Ausgeben
-			  u8x8.print(SOC);
-			  u8x8.print("%");
+			  u8x8.print((int)voltageVesc);
+		  }
+		  else
+		  {
+			  u8x8.print((int)voltageArdu);
 		  }
 
-		  else if (displayCounter == 1)
-		  {
-			  //Pedaling?
-			  if(pedaling)
-			  {
-				  u8x8.clearLine(2);
-				  u8x8.clearLine(3);
-				  u8x8.drawString(0,2,"pedaling");
-			  }
-			  else
-			  {
-				  u8x8.drawString(0,2,"not pedaling");
-			  }
+		  u8x8.print(("V  "));
+		  //SOC Ausgeben
+		  u8x8.print(SOC);
+		  u8x8.print(("% "));
+
+		  u8x8.print(drawnCharge);
+		  u8x8.print(F("mAh"));
 		  }
 
-		  else if (displayCounter == 2)
-		  {
-			  u8x8.setCursor(0,4);
-			  u8x8.println(pas_factor);
-		  }
+	  else if (displayCounter == 2)
+	  {
+		  //Zeile 3:
+		  u8x8.clearLine(4);
+		  u8x8.clearLine(5);
+		  u8x8.setCursor(0,4);
+		  //Unterstuetzungsstufe ausgeben:
+		  u8x8.print(F("Stufe "));
+		  u8x8.print(throttleControl.aktStufe);
+		  u8x8.print(" ");
+		  u8x8.print((int)batteryCurrent);
+		  u8x8.print("A");
+	  }
 
-		  else if (displayCounter == 3)
-		  {
-			  //Unterstuetzungsstufe ausgeben:
-			  u8x8.print("Stufe ");
-			  u8x8.println(throttleControl.aktStufe);
-		  }
+	  else if (displayCounter == 3)
+	  {
+		  //Zeile 4:
+		  u8x8.clearLine(6);
+		  u8x8.clearLine(7);
+		  u8x8.setCursor(0,6);
+
+		  u8x8.print((int)v_ist);
+		  u8x8.print(F("km/h "));
+
 
 	  }
 	  u8x8.display();
@@ -903,9 +872,9 @@ void loop() {
 				  {
 					  //Unterstuetzung hochschalten
 					  throttleControl.aktStufe = throttleControl.aktStufe+switchRed_edges;
-					  if(throttleControl.aktStufe>5)
+					  if(throttleControl.aktStufe>ANZAHL_STUFEN)
 					  {
-						  throttleControl.aktStufe = 5;
+						  throttleControl.aktStufe = ANZAHL_STUFEN;
 					  }
 				  }
 				  if(switchGreen_edges>0)
@@ -943,14 +912,18 @@ void loop() {
 			}
 		}
 	  }
+	  else
+	  {
+		  readBattVolt();
+	  }
 
 	  if(vesc_connected)
 	  {
 		  voltageVesc = UART.data.inpVoltage;
+		  batteryCurrent = UART.data.avgInputCurrent;
+		  drawnCharge = 1000*UART.data.ampHours;
+
 		  //wenn die Eingangsspannung unter die Grenze sinkt -> Unterstützungsstufe zurückschalten
-
-		  //Undervoltage-Regulator
-
 		  if(voltageVesc < undervoltageThreshold)
 		  {
 			  if(throttleControl.aktStufe > 0)
@@ -958,40 +931,85 @@ void loop() {
 				  throttleControl.aktStufe--;
 			  }
 		  }
-		  velocity = UART.data.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
+
+		  //Geschwindigkeit berechnen aus ausgelesener RPM
+		  v_ist = UART.data.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
+
 		  if(pedaling == true)
 		  {
-			  temp_float = (float)stufenI[throttleControl.aktStufe];
+			  throttleControl.current_next = (float)stufenI[throttleControl.aktStufe];
 
 			//Geschwindigkeitsgrenze:
-			 if(UART.data.rpm > 0.9*MAX_ERPM && pipapo ==false)
+			 /*if(UART.data.rpm > 0.9*MAX_ERPM && pipapo ==false)
 			 {
 				 temp_float = (int)((1.0-(UART.data.rpm-0.9*MAX_ERPM)/(0.2*MAX_ERPM))*temp_float);
 				 /*if(temp_float < 0.0)
 				 {
 					 temp_float = 0.0;
-				 }*/
-			 }
-			 if(temp_float <= 0.0)
+				 }
+			 }*/
+			  if(pipapo == false)
+			  {
+				  vreg_out = 1.0-(float)((v_ist-vgrenz)/(vmax-vgrenz));
+				  if(vreg_out >1.0)
+				  {
+					  vreg_out = 1.0;
+				  }
+				  else if (vreg_out < 0.0)
+				  {
+					  vreg_out = 0.0;
+				  }
+				  throttleControl.current_next = throttleControl.current_next*vreg_out;
+			  }
+
+			  //Unterspannungs-regler:
+			  undervoltage_reg_diff = undervoltageThreshold - voltageVesc;
+			  undervoltage_reg_int += (undervoltage_reg_diff * undervoltage_reg_iterm);
+			  undervoltage_reg_prop = (undervoltage_reg_diff * undervoltage_reg_pterm);
+			  undervoltage_reg_out = undervoltage_reg_int + undervoltage_reg_out;
+
+			  // der Unterspannungsregler darf den Strom nur verringern, nicht erhöhen im vgl. zum normalen Wert
+			  if(undervoltage_reg_out > throttleControl.current_next)
+			  {
+				  //integralanteil festhalten (anti-wind-up)
+				  undervoltage_reg_int -= (undervoltage_reg_diff * undervoltage_reg_iterm);
+			  }
+			  else
+			  {
+				  if(undervoltage_reg_out < 0)
+				  {
+					  //kleinere Ströme als 0 gehen nicht + Anti-Windup
+					  undervoltage_reg_out = 0.0;
+					  undervoltage_reg_int = 0.0;
+				  }
+				  //Strom muss begrenzt werden
+				  throttleControl.current_next = undervoltage_reg_out;
+			  }
+
+			 if(throttleControl.current_next <= 0.0)
 			 {
-				 throttleControl.current = 0.0;
+				 throttleControl.current_next = 0.0;
 			 }
-			 else if(temp_float <= throttleControl.current)
+
+			 //Maximale Stromsteigung beachten
+			 else if((throttleControl.current_next - throttleControl.current_now) > MAX_STROMSTEIGUNG )
 			 {
-				 throttleControl.current = throttleControl.current - 1.0;
+				 throttleControl.current_next = throttleControl.current_now + MAX_STROMSTEIGUNG;
 			 }
-			 else
+			 else if ((throttleControl.current_now - throttleControl.current_next) > MAX_STROMSTEIGUNG)
 			 {
-				 // Rampe fahren beim Strom erhoehen
-				 throttleControl.current = throttleControl.current + 1.0;
+				 throttleControl.current_next = throttleControl.current_now - MAX_STROMSTEIGUNG;
 			 }
 	  	  }
+
+		  //wenn nicht pedaliert wird wird gleich auf 0 gestellt
 		  else
 		  {
-			  throttleControl.current = 0.0;
+			  throttleControl.current_next = 0.0;
 		  }
 		  //Stromsollwert an VESC geben
-		  UART.setCurrent(throttleControl.current);
+		  UART.setCurrent(throttleControl.current_next);
+		  throttleControl.current_now = throttleControl.current_next;
 	  }
   }
 
@@ -1008,7 +1026,7 @@ void loop() {
 		lastUltraSlowLoop = millis();
 		calculateSOC();
 
-		// bei bedarf Unterstuetzung auf default zurückstellen
+		// bei bedarf Unterstuetzung auf default zurückstellen nach gewisser Zeit
 		/*if(pedaling == false && (millis()-lastTimePedaling) > TIME_TO_RESET_AFTER_PEDAL_STOP)
 		{
 			throttleControl.aktStufe = DEFAULT_STUFE;
