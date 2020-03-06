@@ -36,8 +36,8 @@
 //#define DISPLAY_CONNECTED
 
 // Undervoltage-Grenzen fuer Batterie:
-#define UNDERVOLTAGE_9S 3.5*9.0
-#define UNDERVOLTAGE_6S 3.5*6.0
+#define UNDERVOLTAGE_9S 3.3*9.0
+#define UNDERVOLTAGE_6S 3.3*6.0
 #define UNDERVOLTAGE_10S 3.25*10.0
 
 

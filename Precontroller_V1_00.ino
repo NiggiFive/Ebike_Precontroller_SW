@@ -630,9 +630,15 @@ void refreshu8x8Display()
 		  //Unterstuetzungsstufe ausgeben:
 		  u8x8.print(F("Stufe "));
 		  u8x8.print(throttleControl.aktStufe);
-		  u8x8.print(" ");
-		  u8x8.print((int)batteryCurrent);
-		  u8x8.print("A");
+		  //u8x8.print(" ");
+		  if(pedaling == true)
+		  {
+			  u8x8.print(F(" ON"));
+		  }
+		  else
+		  {
+			  u8x8.print(F(" OFF"));
+		  }
 	  }
 
 	  else if (displayCounter == 3)
@@ -644,6 +650,9 @@ void refreshu8x8Display()
 
 		  u8x8.print((int)v_ist);
 		  u8x8.print(F("km/h "));
+
+		  u8x8.print((int)batteryCurrent);
+		  u8x8.print(("A"));
 
 
 	  }
@@ -689,8 +698,9 @@ void setup() {
 	pinMode(OUTPUT_DISPLAY_SUPPLY, OUTPUT);
 	digitalWrite(OUTPUT_DISPLAY_SUPPLY, LOW);
 
-	//Licht-Ausgang konfigurieren (und gleich anschalten)
+	//Licht-Ausgang konfigurieren
 	pinMode(OUTPUT_LIGHT, OUTPUT);
+	//Licht anschalten
 	digitalWrite(OUTPUT_LIGHT, HIGH);
 
 	//LED auf ArduinoNano Pin 13
@@ -940,14 +950,6 @@ void loop() {
 			  throttleControl.current_next = (float)stufenI[throttleControl.aktStufe];
 
 			//Geschwindigkeitsgrenze:
-			 /*if(UART.data.rpm > 0.9*MAX_ERPM && pipapo ==false)
-			 {
-				 temp_float = (int)((1.0-(UART.data.rpm-0.9*MAX_ERPM)/(0.2*MAX_ERPM))*temp_float);
-				 /*if(temp_float < 0.0)
-				 {
-					 temp_float = 0.0;
-				 }
-			 }*/
 			  if(pipapo == false)
 			  {
 				  vreg_out = 1.0-(float)((v_ist-vgrenz)/(vmax-vgrenz));
@@ -963,13 +965,13 @@ void loop() {
 			  }
 
 			  //Unterspannungs-regler:
-			  undervoltage_reg_diff = undervoltageThreshold - voltageVesc;
+			  /*undervoltage_reg_diff = undervoltageThreshold - voltageVesc;
 			  undervoltage_reg_int += (undervoltage_reg_diff * undervoltage_reg_iterm);
 			  undervoltage_reg_prop = (undervoltage_reg_diff * undervoltage_reg_pterm);
 			  undervoltage_reg_out = undervoltage_reg_int + undervoltage_reg_out;
 
 			  // der Unterspannungsregler darf den Strom nur verringern, nicht erhöhen im vgl. zum normalen Wert
-			  if(undervoltage_reg_out > throttleControl.current_next)
+			  /*if(undervoltage_reg_out > throttleControl.current_next)
 			  {
 				  //integralanteil festhalten (anti-wind-up)
 				  undervoltage_reg_int -= (undervoltage_reg_diff * undervoltage_reg_iterm);
@@ -984,7 +986,7 @@ void loop() {
 				  }
 				  //Strom muss begrenzt werden
 				  throttleControl.current_next = undervoltage_reg_out;
-			  }
+			  }*/
 
 			 if(throttleControl.current_next <= 0.0)
 			 {
