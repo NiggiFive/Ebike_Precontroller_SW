@@ -8,6 +8,8 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+//#define DISPLAY_CONNECTED
+
 //UART-Geschwindigkeit für VESC einstellen:
 //#define VESC_BAUDRATE 19200
 #define VESC_BAUDRATE 115200
@@ -28,12 +30,13 @@
 #define MAX_RPM 			(MAX_SPEED_KMH*1000)/(RADUMFANG*60)
 #define MAX_ERPM			MAX_RPM*MOTOR_POLE_PAIRS*MOTOR_GEAR_RATIO
 
+//Geschwindigkeit ab der der Strom zurückgenommen wird
+#define VGRENZ				23
+
 //Max ERPM (für VESC Konfiguration):
 //für VMAX = 27km/h
 //26 Zoll : ERPM_max = 9340
 //28 Zoll : ERPM_max = 9230
-
-//#define DISPLAY_CONNECTED
 
 // Undervoltage-Grenzen fuer Batterie:
 #define UNDERVOLTAGE_9S 3.3*9.0
@@ -44,7 +47,7 @@
 // Werte fuer Pedalsensierung:
 #define DOUBLE_HALL	0			// 1 für Double-Hall-Sensor, 0 für non-double-Hall
 #define PAS_MAGNETS 10			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12
-#define MIN_CADENCE	20			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
+#define MIN_CADENCE	25			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
 
 #define PAS_FACTOR_MIN	120		// Wichtig um Vorwaerts und Rueckwaerts-Pedalieren unterscheiden zu können bei non-double-Hall-Sensoren
 
@@ -59,5 +62,7 @@
 #define STUFE3_I 20
 #define STUFE2_I 10
 #define STUFE1_I 6 		// 4A war ziemlich wenig
+
+#define DEFAULT_STUFE 1
 
 #endif /* CONFIG_H_ */

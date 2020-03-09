@@ -72,8 +72,6 @@ VescUart UART;
 
 #define SCHIEBEHILFE STUFE1_V
 
-#define DEFAULT_STUFE 0
-
 // Zeitfenster fuer Tastereingabe in ms
 #define TASTER_TIME_WINDOW 500
 
@@ -109,45 +107,57 @@ int stufenI [ANZAHL_STUFEN+1] = {0, STUFE1_I, STUFE2_I, STUFE3_I, STUFE4_I};
 
 unsigned long milliseconds;
 
+struct batteryDataStruct
+{
+	uint8_t numberOfCells = 9;
+	float voltageArdu = 0.0;
+	float voltageVesc = 0.0;
+	float vbat = 0.0;
+	float avgCellVolt = 0.0;
+	uint8_t SOC = 0;
+
+	float batteryCurrent = 0.0;
+	int drawnCharge = 0.0;
+};
+
+struct undervoltageRegStruct
+{
+	//fuer Undervoltage-Regler
+	float undervoltage_reg_out;
+	float undervoltage_reg_prop;
+	float undervoltage_reg_int;
+	float undervoltage_reg_diff;
+
+	const int undervoltage_reg_pterm = 3;
+	const float undervoltage_reg_iterm = 0.1;
+
+};
+
+batteryDataStruct batteryData;
+undervoltageRegStruct undervoltageReg;
+
 int temp_int;
 
 uint8_t displayCounter;
 
+float motor_current;
+
 bool temp_bool;
+
+bool speed_limit_active;
 
 bool vesc_connected = false;
 bool vesc_connection_error = false;
 
-bool led_state;
-
 bool pipapo = false;
 
-uint8_t numberOfCells = 9;
-float voltageArdu = 0.0;
-float voltageVesc = 0.0;
-float avgCellVolt = 0.0;
-uint8_t SOC = 0;
-
-//fuer Undervoltage-Regler
-float undervoltage_reg_out;
-float undervoltage_reg_prop;
-float undervoltage_reg_int;
-float undervoltage_reg_diff;
-
-const int undervoltage_reg_pterm = 3;
-const float undervoltage_reg_iterm = 0.1;
-
 //fuer Geschwindigkeits-Regler
-const int vmax = 27;
-const int vgrenz = 18;
+const int vmax = MAX_SPEED_KMH;
+const int vgrenz = VGRENZ;
 float vreg_out = 0.0;
 
-float v_ist = 0.0;
+float velocity = 0.0;
 float undervoltageThreshold;
-
-float batteryCurrent = 0.0;
-int drawnCharge = 0.0;
-
 
 /*struct vescDataStruct
 {
@@ -171,23 +181,31 @@ struct throttleControlStruct
 };
 
 //Variables for User-Inputs
-	int taster1_state = 0;
-	bool taster1_ready = false;
-	int taster1_edges = 0;
-	long int taster1_lastEvent = 0;
 
-	int taster2_state = false;
-	bool taster2_ready = false;
-	int taster2_edges = 0;
-	long int taster2lastEvent = 0;
+struct tasterStruct
+{
+	int state = 0;
+	bool ready = false;
+	bool edge_detected = false;
+	uint8_t edges = 0;
+	long int lastEvent = 0;
+};
+
+tasterStruct taster1;
+tasterStruct taster2;
+
+//tasterStruct tasterUp;
+//tasterStruct tasterDown;
 
 	int switchRed_state = false;
 	bool switchRedGreen_ready = false;
+	bool seitchRed_edge_detected = false;
 	int switchRed_edges = 0;
 	long int switchRedGreen_lastEvent = 0;
 
 	int switchGreen_state = false;
 	//bool switchGreen_ready = false;
+	bool switchGreen_edge_detected = false;
 	int switchGreen_edges = 0;
 	//long int switchGreen_lastEvent = 0;
 
@@ -203,20 +221,23 @@ struct throttleControlStruct
 	int ultraslowTimerVariable = 0;
 	bool ultraslowTimerFlag = false;
 
+	struct pasStruct
+	{
+		//Variables for PAS
+		const uint8_t pas_allowed_fails = 1;
+		const bool doubleHall = DOUBLE_HALL;
+		uint16_t pasTimeHigh = 0;
+		uint16_t pasTimeLow = 0;
+		unsigned long last_pas_event = 0;
+		bool pas_status = false;
+		uint16_t pas_factor = 0;
+		uint16_t pas_fails;
+		uint16_t cadence = 0;
+		bool pedaling = false;
 
-//Variables for PAS
-	const uint8_t pas_allowed_fails = 1;
-	const bool doubleHall = DOUBLE_HALL;
-	uint16_t pasTimeHigh = 0;
-	uint16_t pasTimeLow = 0;
-	unsigned long last_pas_event = 0;
-	bool pas_status = false;
-	uint16_t pas_factor = 0;
-	uint16_t pas_fails;
-	uint16_t cadence = 0;
-    bool pedaling = false;
+	};
 
-    unsigned long lastTimePedaling;
+	pasStruct pasData;
 
 // Anlegen der benuetigten Structs
 throttleControlStruct throttleControl;
@@ -224,64 +245,54 @@ throttleControlStruct throttleControl;
 //ISR fuer PAS
 void pas_ISR()
 {
-	if(last_pas_event > (millis()-ENTPRELLZEIT))
+	if(pasData.last_pas_event > (millis()-ENTPRELLZEIT))
 	{
 		//Entprellung
 		return;
 	}
-	pas_status = digitalRead(INPUT_PAS);
-	if(pas_status == true)
+	pasData.pas_status = digitalRead(INPUT_PAS);
+	if(pasData.pas_status == true)
 	{
-		pasTimeLow = millis()-last_pas_event;
+		pasData.pasTimeLow = millis()-pasData.last_pas_event;
 	}
 	else
 	{
-		pasTimeHigh = millis()-last_pas_event;
+		pasData.pasTimeHigh = millis()-pasData.last_pas_event;
 	}
-	last_pas_event = millis();
-	cadence = CONV_PAS_TIME_TO_CADENCE/(pasTimeLow+pasTimeHigh);
+	pasData.last_pas_event = millis();
+	pasData.cadence = CONV_PAS_TIME_TO_CADENCE/(pasData.pasTimeLow+pasData.pasTimeHigh);
 
-	pas_factor = 100*pasTimeHigh/pasTimeLow;
-	if(pas_factor > 900)
+	pasData.pas_factor = 100*pasData.pasTimeHigh/pasData.pasTimeLow;
+	if(pasData.pas_factor > 900)
 	{
-		pas_factor = 900;
+		pasData.pas_factor = 900;
 	}
-	if(doubleHall == false)
+	if(pasData.doubleHall == false)
 	{	// wenn man keinen Double-Hall-Sensor hat muss man den PAS-Faktor mit einbeziehen
-		if(cadence>=MIN_CADENCE && pas_factor > PAS_FACTOR_MIN)
+		if(pasData.cadence>=MIN_CADENCE && pasData.pas_factor > PAS_FACTOR_MIN)
 		{
-			pedaling = true;
-			pas_fails = 0;
+			pasData.pedaling = true;
+			pasData.pas_fails = 0;
 		}
 		else
 		{
-			pas_fails++;
-			if(pas_fails > pas_allowed_fails)
+			pasData.pas_fails++;
+			if(pasData.pas_fails > pasData.pas_allowed_fails)
 			{
-				if(pedaling == true)
-				{
-					lastTimePedaling = millis();
-				}
-				pedaling = false;
-				//pas_factor = 0;
+				pasData.pedaling = false;
 			}
 		}
 	}
 	else
 	{
 		// mit Double-Hall-Sensor muss man nur die Cadence überprüfen
-		if(cadence>=MIN_CADENCE)
+		if(pasData.cadence>=MIN_CADENCE)
 		{
-			pedaling = true;
+			pasData.pedaling = true;
 		}
 		else
 		{
-			if(pedaling == true)
-			{
-				lastTimePedaling = millis();
-			}
-			pedaling = false;
-			//pas_factor = 0;
+			pasData.pedaling = false;
 		}
 	}
 }
@@ -293,52 +304,101 @@ void pas_ISR()
 
 void checkTaster()
 {
+	//taster1_state = digitalRead(INPUT_TASTER1);
+	//taster2_state = digitalRead(INPUT_TASTER2);
 
-	//Taster1 abfragen
- /*temp_bool = digitalRead(INPUT_TASTER1);
-  if(temp_bool!=taster1.state && temp_bool == false)
-  {		//fallende Flanke -> wurde gerade gedrueckt
-	  taster1.edges++;
-	  taster1.lastEvent = milliseconds;
-  }
-  taster1.state = temp_bool;
-  if(milliseconds - taster1.lastEvent >= TASTER_TIME_WINDOW)
-  {
-	  taster1.ready = true;
-  }*/
+	temp_int = digitalRead(INPUT_3W_SW_RED);
+	if(temp_int == 0 && switchRed_state == 1)		//fallende Flanke erkannt
+	{
+		if(switchRedGreen_ready == false)		//Tastereingaben nur auswerten wenn das Zeitfenster noch nicht rum ist
+		{
+			switchRed_edges++;
+		}
+		switchRedGreen_lastEvent = millis();
+	}
+	switchRed_state = temp_int;
 
-  // Licht-Taster abfragen
-	//test2 = digitalRead(INPUT_TASTER2);
-	  temp_bool = digitalRead(INPUT_TASTER2);
-	  if(temp_bool==false)
-	  {
-		  if(taster2_state == true)
-		  {//fallende Flanke -> wurde gerade gedrueckt
-			  taster2_edges++;
-		  }
-		  taster2_state = temp_bool;
-	  }
 
-  // 3W Rot-Taster abfragen
-temp_int = digitalRead(INPUT_3W_SW_RED);
+	//Pin auslesen
+	temp_int = digitalRead(INPUT_3W_SW_GREEN);
+	if(temp_int == 0 && switchGreen_state == 1)		//fallende Flanke erkannt
+	{
+		switchGreen_edge_detected = true;
+		/*if(switchRedGreen_ready == false)
+		{
+			switchGreen_edges++;
+		}
+		switchRedGreen_lastEvent = millis();*/
+	}
 
-  // 3W-Green-Taster abfragen
-  temp_bool = digitalRead(INPUT_3W_SW_GREEN);
-  if(temp_bool == false)
-  {
-	  if(switchGreen_state == true)
-	  {//fallende Flanke -> wurde gerade gedrueckt
-		  switchGreen_edges++;
-		  switchGreen_state = temp_bool;
-	  }
-  }
+	//keine Flanke erkannt aber noch auf low-level -> flanke bestätigen (Entprellung)
+	else if (temp_int == 0 && switchGreen_state == 0)
+	{
+		if(switchGreen_edge_detected == true && switchRedGreen_ready == false)
+		{
+			switchGreen_edges++;
+			switchRedGreen_lastEvent = millis();
+			switchGreen_edge_detected = false;
+		}
+	}
+	else if(switchGreen_edge_detected == true)
+	{
+		switchGreen_edge_detected = false;
+	}
+	switchGreen_state = temp_int;
+
+	if(millis()-switchRedGreen_lastEvent > TASTER_TIME_WINDOW && (switchRed_edges>0 || switchGreen_edges >0))
+	{
+		switchRedGreen_ready = true;
+	}
+	else
+	{
+		switchRedGreen_ready = false;
+	}
+}
+
+void interpretInputs()
+{
+  //Taster auswerten:
+	if(switchRedGreen_ready == true)
+	{
+		if(switchRed_edges == 1 && switchGreen_edges == 4)
+		{
+			pipapo = true;
+		}
+		else
+		{
+			  if(switchRed_edges>0)
+			  {
+				  //Unterstuetzung hochschalten
+				  throttleControl.aktStufe = throttleControl.aktStufe+switchRed_edges;
+				  if(throttleControl.aktStufe>ANZAHL_STUFEN)
+				  {
+					  throttleControl.aktStufe = ANZAHL_STUFEN;
+				  }
+			  }
+			  if(switchGreen_edges>0)
+			  {
+				  //Unterstuetzung runterschalten
+				  throttleControl.aktStufe = throttleControl.aktStufe-switchGreen_edges;
+
+				  if(throttleControl.aktStufe <=0)
+				  {
+					  throttleControl.aktStufe = 0;
+					  pipapo = false;
+				  }
+			  }
+		}
+		switchRed_edges=0;
+		switchGreen_edges=0;
+	}
 }
 
 // Batteriespannung auslesen und umrechnen
-void readBattVolt()
+void readBattVoltArdu()
 {
   temp_int = analogRead(INPUT_BATSENSE);
-  voltageArdu = (float)((temp_int*REFVOLT/1024.0)*(RUPPER+RLOWER)/RLOWER);
+  batteryData.voltageArdu = (float)((temp_int*REFVOLT/1024.0)*(RUPPER+RLOWER)/RLOWER);
 }
 
 // 1ms-Timer-ISR
@@ -396,96 +456,96 @@ void calculateSOC()
 	 */
 	if(vesc_connected)
 	{
-		avgCellVolt = voltageVesc/numberOfCells;
+		batteryData.avgCellVolt = batteryData.voltageVesc/batteryData.numberOfCells;
 	}
 	else
 	{
-		avgCellVolt = voltageArdu/numberOfCells;
+		batteryData.avgCellVolt = batteryData.voltageArdu/batteryData.numberOfCells;
 	}
-	int temp = (int)(avgCellVolt*1000.0);
+	int temp = (int)(batteryData.avgCellVolt*1000.0);
 	if(temp > 4080)
 	{
-		SOC = 100;
+		batteryData.SOC = 100;
 	}
 	else if (temp >4060)
 	{
-		SOC = 95;
+		batteryData.SOC = 95;
 	}
 	else if (temp >4000)
 	{
-		SOC = 90;
+		batteryData.SOC = 90;
 	}
 	else if (temp >3970)
 	{
-		SOC = 85;
+		batteryData.SOC = 85;
 	}
 	else if (temp >3940)
 	{
-		SOC = 80;
+		batteryData.SOC = 80;
 	}
 	else if (temp >3920)
 	{
-		SOC = 75;
+		batteryData.SOC = 75;
 	}
 	else if (temp >3880)
 	{
-		SOC = 70;
+		batteryData.SOC = 70;
 	}
 	else if (temp >3850)
 	{
-		SOC = 65;
+		batteryData.SOC = 65;
 	}
 	else if (temp >3830)
 	{
-		SOC = 60;
+		batteryData.SOC = 60;
 	}
 	else if (temp >3820)
 	{
-		SOC = 55;
+		batteryData.SOC = 55;
 	}
 	else if (temp >3800)
 	{
-		SOC = 50;
+		batteryData.SOC = 50;
 	}
 	else if (temp >3790)
 	{
-		SOC = 45;
+		batteryData.SOC = 45;
 	}
 	else if (temp >3780)
 	{
-		SOC = 40;
+		batteryData.SOC = 40;
 	}
 	else if (temp >3770)
 	{
-		SOC = 35;
+		batteryData.SOC = 35;
 	}
 	else if (temp >3760)
 	{
-		SOC = 30;
+		batteryData.SOC = 30;
 	}
 	else if (temp >3750)
 	{
-		SOC = 25;
+		batteryData.SOC = 25;
 	}
 	else if (temp >3740)
 	{
-		SOC = 20;
+		batteryData.SOC = 20;
 	}
 	else if (temp >3720)
 	{
-		SOC = 15;
+		batteryData.SOC = 15;
 	}
 	else if (temp >3690)
 	{
-		SOC = 10;
+		batteryData.SOC = 10;
 	}
 	else if (temp >3680)
 	{
-		SOC = 5;
+		batteryData.SOC = 5;
 	}
 	else
 	{
-		SOC = 0;
+		batteryData.SOC = 0;
 	}
 }
 
@@ -496,93 +556,6 @@ void setThrottlePWM()
   }
 }
 
-// Das ist der Quellcode aus der Adafruit Library
-/*void refreshDisplay()
-{
-	  display.clearDisplay();
-
-	  // set text color / Textfarbe setzen
-	  display.setTextColor(WHITE);
-	  // set text size / Textgroesse setzen
-	  display.setTextSize(1);
-	  // set text cursor position / Textstartposition einstellen
-	  display.setCursor(1,1);
-
-	  if(vesc_connected){
-		  //display.println("vesc");
-		  //Zeile 1:
-		  //Batteriespannung ausgeben
-		  display.print(UART.data.inpVoltage);
-		  display.print("V ");
-		  //SOC Ausgeben
-		  display.print(SOC);
-		  display.println("%");
-
-		  if(pedaling)
-		  {
-			  display.println("pedaling");
-		  }
-		  else
-		  {
-			  display.println("not pedaling");
-		  }
-
-		  //Zeile 2:
-		  //MOTOR Strom ausgeben
-		  //display.print("Im=");
-		  display.print(UART.data.avgMotorCurrent);
-		  display.print("A ");
-		  //Akkustrom ausgeben:
-		  //display.print(" Ibat=");
-		  display.print(UART.data.avgInputCurrent);
-		  display.println("A");
-
-		  //Zeile 3:
-		  //ERPM ausgeben:
-		  display.print(UART.data.rpm);
-		  display.print("erpm");
-		  //Geschwindigkeit Ausgeben:
-		  //display.print(" 15.0");
-		  display.println("km/h");
-
-		  //Zeile 4:
-		  //Leistung ausgeben:
-		  //display.print("P=");
-		  display.print("100");
-		  display.print("W");
-		  //Unterstuetzungsstufe ausgeben:
-		  display.print("St ");
-		  display.print(throttleControl.aktStufe);
-	  }
-
-	  else{
-		  //Zeile 1:
-		  //Batteriespannung ausgeben
-		  display.print(voltage_ardu);
-		  display.print("V  ");
-		  //SOC Ausgeben
-		  display.print(SOC);
-		  display.println("%");
-
-		  //Pedaling?
-		  if(pedaling)
-		  {
-			  display.println("pedaling");
-		  }
-		  else
-		  {
-			  display.println("not pedaling");
-		  }
-
-		  //Unterstuetzungsstufe ausgeben:
-		  display.print("Stufe ");
-		  display.println(throttleControl.aktStufe);
-
-		  //scheinbar kann ich hier max. 5 buchstaben schreiben?!?! wtf
-
-	  }
-	  display.display();
-}*/
 
 #ifdef DISPLAY_CONNECTED
 void refreshu8x8Display()
@@ -593,7 +566,7 @@ void refreshu8x8Display()
 		  u8x8.clearLine(0);
 		  u8x8.clearLine(1);
 		  //Zeile 1:
-		  u8x8.print(("FreeRAM: "));
+		  u8x8.print(F("FreeRAM: "));
 		  u8x8.print(freeMemory());
 	  }
 
@@ -605,19 +578,19 @@ void refreshu8x8Display()
 		  u8x8.setCursor(0,2);
 		  if(vesc_connected)
 		  {
-			  u8x8.print((int)voltageVesc);
+			  u8x8.print((int)batteryData.voltageVesc);
 		  }
 		  else
 		  {
-			  u8x8.print((int)voltageArdu);
+			  u8x8.print((int)batteryData.voltageArdu);
 		  }
 
 		  u8x8.print(("V  "));
 		  //SOC Ausgeben
-		  u8x8.print(SOC);
+		  u8x8.print(batteryData.SOC);
 		  u8x8.print(("% "));
 
-		  u8x8.print(drawnCharge);
+		  u8x8.print(batteryData.drawnCharge);
 		  u8x8.print(F("mAh"));
 		  }
 
@@ -631,7 +604,7 @@ void refreshu8x8Display()
 		  u8x8.print(F("Stufe "));
 		  u8x8.print(throttleControl.aktStufe);
 		  //u8x8.print(" ");
-		  if(pedaling == true)
+		  if(pasData.pedaling == true)
 		  {
 			  u8x8.print(F(" ON"));
 		  }
@@ -648,10 +621,10 @@ void refreshu8x8Display()
 		  u8x8.clearLine(7);
 		  u8x8.setCursor(0,6);
 
-		  u8x8.print((int)v_ist);
+		  u8x8.print((int)velocity);
 		  u8x8.print(F("km/h "));
 
-		  u8x8.print((int)batteryCurrent);
+		  u8x8.print((int)batteryData.batteryCurrent);
 		  u8x8.print(("A"));
 
 
@@ -669,7 +642,8 @@ void refreshu8x8Display()
 }
 #endif
 
-void setup() {
+void setup()
+{
   // put your setup code here, to run once:
 
 	// Pin A4 als Ausgang einstellen (fuer I2C)
@@ -766,12 +740,12 @@ void setup() {
 		//readBattVolt();
 		if (UART.data.inpVoltage > BAT6S9S_GRENZE)
 		{
-			numberOfCells = 9;
+			batteryData.numberOfCells = 9;
 			undervoltageThreshold = UNDERVOLTAGE_9S;
 		}
 		else
 		{
-			numberOfCells = 6;
+			batteryData.numberOfCells = 6;
 			undervoltageThreshold = UNDERVOLTAGE_6S;
 		}
 	}
@@ -788,66 +762,20 @@ void loop() {
 	}
 
 	// PAS-Timeout?
-	if ((millis() - last_pas_event) > PAS_TIMEOUT)
+	if ((millis() - pasData.last_pas_event) > PAS_TIMEOUT)
 	{
-		if(pedaling == true)
-		{
-			lastTimePedaling = millis();
-		}
-		pedaling = false;
-		pas_factor = 0;
+		pasData.pedaling = false;
+		pasData.pas_factor = 0;
 	}
 
-	// Schnelle Routine
+	// Schnelle Routine -> hier werden nur die Taster ausgelesen
 	if((millis()-lastFastLoop) > FAST_TIMER)
 	//if(fastTimerFlag)
 	{
 		lastFastLoop = millis();
 		fastTimerFlag = false;
 
-
-		//taster1_state = digitalRead(INPUT_TASTER1);
-		//taster2_state = digitalRead(INPUT_TASTER2);
-		temp_int = digitalRead(INPUT_3W_SW_RED);
-		if(temp_int == 0 && switchRed_state == 1)		//fallende Flanke erkannt
-		{
-			if(switchRedGreen_ready == false)		//Tastereingaben nur auswerten wenn das Zeitfenster noch nicht rum ist
-			{
-				switchRed_edges++;
-			}
-			switchRedGreen_lastEvent = millis();
-		}
-		switchRed_state = temp_int;
-
-
-		temp_int = digitalRead(INPUT_3W_SW_GREEN);
-		if(temp_int == 0 && switchGreen_state == 1)		//fallende Flanke erkannt
-		{
-			if(switchRedGreen_ready == false)
-			{
-				switchGreen_edges++;
-			}
-			switchRedGreen_lastEvent = millis();
-		}
-		switchGreen_state = temp_int;
-
-		if(millis()-switchRedGreen_lastEvent > TASTER_TIME_WINDOW && (switchRed_edges>0 || switchGreen_edges >0))
-		{
-			switchRedGreen_ready = true;
-		}
-		else
-		{
-			switchRedGreen_ready = false;
-		}
-
-		//Taster auslesen:
-		//Taster1 abfragen
-	  //taster1_state = digitalRead(INPUT_TASTER1);
-
-
-	  // Licht-Taster abfragen
-		//test2 = digitalRead(INPUT_TASTER2);
-		  //taster2_state = digitalRead(INPUT_TASTER2);
+		checkTaster();
 	}
 
 
@@ -868,41 +796,7 @@ void loop() {
 			digitalWrite(LED, HIGH);
 		}
 
-
-	  //Taster auswerten:
-		if(switchRedGreen_ready == true)
-		{
-			if(switchRed_edges == 1 && switchGreen_edges == 4)
-			{
-				pipapo = true;
-			}
-			else
-			{
-				  if(switchRed_edges>0)
-				  {
-					  //Unterstuetzung hochschalten
-					  throttleControl.aktStufe = throttleControl.aktStufe+switchRed_edges;
-					  if(throttleControl.aktStufe>ANZAHL_STUFEN)
-					  {
-						  throttleControl.aktStufe = ANZAHL_STUFEN;
-					  }
-				  }
-				  if(switchGreen_edges>0)
-				  {
-					  //Unterstuetzung runterschalten
-					  throttleControl.aktStufe = throttleControl.aktStufe-switchGreen_edges;
-
-					  if(throttleControl.aktStufe <=0)
-					  {
-						  throttleControl.aktStufe = 0;
-						  pipapo = false;
-					  }
-				  }
-			}
-			switchRed_edges=0;
-			switchGreen_edges=0;
-		}
-
+		interpretInputs();
 
 	  if(vesc_connected)
 	  {
@@ -924,17 +818,19 @@ void loop() {
 	  }
 	  else
 	  {
-		  readBattVolt();
+		  readBattVoltArdu();
 	  }
 
 	  if(vesc_connected)
 	  {
-		  voltageVesc = UART.data.inpVoltage;
-		  batteryCurrent = UART.data.avgInputCurrent;
-		  drawnCharge = 1000*UART.data.ampHours;
+		  batteryData.voltageVesc = UART.data.inpVoltage;
+		  batteryData.batteryCurrent = UART.data.avgInputCurrent;
+		  batteryData.drawnCharge = 1000*UART.data.ampHours;
+
+		  motor_current = UART.data.avgMotorCurrent;
 
 		  //wenn die Eingangsspannung unter die Grenze sinkt -> Unterstützungsstufe zurückschalten
-		  if(voltageVesc < undervoltageThreshold)
+		  if(batteryData.voltageVesc < undervoltageThreshold)
 		  {
 			  if(throttleControl.aktStufe > 0)
 			  {
@@ -943,16 +839,16 @@ void loop() {
 		  }
 
 		  //Geschwindigkeit berechnen aus ausgelesener RPM
-		  v_ist = UART.data.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
+		  velocity = UART.data.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
 
-		  if(pedaling == true)
+		  if(pasData.pedaling == true)
 		  {
 			  throttleControl.current_next = (float)stufenI[throttleControl.aktStufe];
 
 			//Geschwindigkeitsgrenze:
 			  if(pipapo == false)
 			  {
-				  vreg_out = 1.0-(float)((v_ist-vgrenz)/(vmax-vgrenz));
+				  vreg_out = 1.0-(float)((velocity-vgrenz)/(vmax-vgrenz));
 				  if(vreg_out >1.0)
 				  {
 					  vreg_out = 1.0;
@@ -998,10 +894,10 @@ void loop() {
 			 {
 				 throttleControl.current_next = throttleControl.current_now + MAX_STROMSTEIGUNG;
 			 }
-			 else if ((throttleControl.current_now - throttleControl.current_next) > MAX_STROMSTEIGUNG)
+			 /*else if ((throttleControl.current_now - throttleControl.current_next) > MAX_STROMSTEIGUNG)
 			 {
 				 throttleControl.current_next = throttleControl.current_now - MAX_STROMSTEIGUNG;
-			 }
+			 }*/
 	  	  }
 
 		  //wenn nicht pedaliert wird wird gleich auf 0 gestellt
@@ -1009,7 +905,6 @@ void loop() {
 		  {
 			  throttleControl.current_next = 0.0;
 		  }
-		  //Stromsollwert an VESC geben
 		  UART.setCurrent(throttleControl.current_next);
 		  throttleControl.current_now = throttleControl.current_next;
 	  }
