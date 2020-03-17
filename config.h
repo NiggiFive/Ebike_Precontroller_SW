@@ -20,10 +20,10 @@
 #define MOTOR_GEAR_RATIO 	4.42
 //Radumfang in Metern
 //fuer 28 Zoll (Schwalbe Marathon)
-#define RADUMFANG 			2.155
+//#define RADUMFANG 			2.155
 
 //fuer 26 Zoll (Big Apple 2,15)
-//#define RADUMFANG			2.130
+#define RADUMFANG			2.130
 
 // Maximale Geschwindigkeit fuer Unterstuetzung
 #define MAX_SPEED_KMH 		27
@@ -49,10 +49,10 @@
 #define PAS_MAGNETS 10			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12
 #define MIN_CADENCE	25			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
 
-#define PAS_FACTOR_MIN	120		// Wichtig um Vorwaerts und Rueckwaerts-Pedalieren unterscheiden zu können bei non-double-Hall-Sensoren
+#define PAS_FACTOR_MIN	110		// Wichtig um Vorwaerts und Rueckwaerts-Pedalieren unterscheiden zu können bei non-double-Hall-Sensoren
 
-// Zeit, nach der beim aufhören zu Pedalieren die Utnerstuetzungsstufe wieder auf den default-Wert zurückgesetzt wird in Millisekunden
-#define TIME_TO_RESET_AFTER_PEDAL_STOP	10000
+// Zeit (in 100ms-Schritten), nach der beim aufhören zu Pedalieren die Utnerstuetzungsstufe wieder auf den default-Wert zurückgesetzt wird
+#define TIME_TO_RESET_AFTER_PEDAL_STOP	100
 
 #define ANZAHL_STUFEN	4
 
@@ -60,7 +60,7 @@
 //#define STUFE5_I 30
 #define STUFE4_I 30
 #define STUFE3_I 20
-#define STUFE2_I 10
+#define STUFE2_I 12
 #define STUFE1_I 6 		// 4A war ziemlich wenig
 
 #define DEFAULT_STUFE 1

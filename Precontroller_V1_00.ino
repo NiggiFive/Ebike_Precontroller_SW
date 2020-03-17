@@ -107,6 +107,8 @@ int stufenI [ANZAHL_STUFEN+1] = {0, STUFE1_I, STUFE2_I, STUFE3_I, STUFE4_I};
 
 unsigned long milliseconds;
 
+uint16_t notPedalingCounter;
+
 struct batteryDataStruct
 {
 	uint8_t numberOfCells = 9;
@@ -133,6 +135,17 @@ struct undervoltageRegStruct
 
 };
 
+struct speedRegStruct
+{
+	//fuer Geschwindigkeits-Regler
+	const int vmax = MAX_SPEED_KMH;
+	const int vgrenz = VGRENZ;
+	float vreg_out = 0.0;
+	float velocity = 0.0;
+};
+
+speedRegStruct speedReg;
+
 batteryDataStruct batteryData;
 undervoltageRegStruct undervoltageReg;
 
@@ -144,19 +157,10 @@ float motor_current;
 
 bool temp_bool;
 
-bool speed_limit_active;
-
 bool vesc_connected = false;
-bool vesc_connection_error = false;
 
 bool pipapo = false;
 
-//fuer Geschwindigkeits-Regler
-const int vmax = MAX_SPEED_KMH;
-const int vgrenz = VGRENZ;
-float vreg_out = 0.0;
-
-float velocity = 0.0;
 float undervoltageThreshold;
 
 /*struct vescDataStruct
@@ -231,6 +235,8 @@ tasterStruct taster2;
 		unsigned long last_pas_event = 0;
 		bool pas_status = false;
 		uint16_t pas_factor = 0;
+		uint16_t pas_factor_filtered = 0;
+		uint16_t pas_factor_int = 0;
 		uint16_t pas_fails;
 		uint16_t cadence = 0;
 		bool pedaling = false;
@@ -262,25 +268,31 @@ void pas_ISR()
 	pasData.last_pas_event = millis();
 	pasData.cadence = CONV_PAS_TIME_TO_CADENCE/(pasData.pasTimeLow+pasData.pasTimeHigh);
 
-	pasData.pas_factor = 100*pasData.pasTimeHigh/pasData.pasTimeLow;
-	if(pasData.pas_factor > 900)
-	{
-		pasData.pas_factor = 900;
-	}
 	if(pasData.doubleHall == false)
 	{	// wenn man keinen Double-Hall-Sensor hat muss man den PAS-Faktor mit einbeziehen
-		if(pasData.cadence>=MIN_CADENCE && pasData.pas_factor > PAS_FACTOR_MIN)
+		pasData.pas_factor = 100*pasData.pasTimeHigh/pasData.pasTimeLow;
+			if(pasData.pas_factor > 200)
+			{
+				pasData.pas_factor = 200;
+			}
+
+		// PT1-Filterung des PAS-Faktors:
+		pasData.pas_factor_int +=(pasData.pas_factor-pasData.pas_factor_filtered);
+		pasData.pas_factor_filtered = pasData.pas_factor_int >>1;
+
+		if(pasData.cadence>=MIN_CADENCE && pasData.pas_factor_filtered > PAS_FACTOR_MIN)
 		{
 			pasData.pedaling = true;
 			pasData.pas_fails = 0;
 		}
 		else
 		{
-			pasData.pas_fails++;
+			pasData.pedaling = false;
+			/*pasData.pas_fails++;
 			if(pasData.pas_fails > pasData.pas_allowed_fails)
 			{
 				pasData.pedaling = false;
-			}
+			}*/
 		}
 	}
 	else
@@ -766,6 +778,7 @@ void loop() {
 	{
 		pasData.pedaling = false;
 		pasData.pas_factor = 0;
+		pasData.pas_factor_filtered = 0;
 	}
 
 	// Schnelle Routine -> hier werden nur die Taster ausgelesen
@@ -777,7 +790,6 @@ void loop() {
 
 		checkTaster();
 	}
-
 
 	// langsame Routine
   if((milliseconds - lastSlowLoop) > SLOW_TIMER)
@@ -839,25 +851,26 @@ void loop() {
 		  }
 
 		  //Geschwindigkeit berechnen aus ausgelesener RPM
-		  velocity = UART.data.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
+		  speedReg.velocity = UART.data.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
 
 		  if(pasData.pedaling == true)
 		  {
+			  notPedalingCounter = 0;
 			  throttleControl.current_next = (float)stufenI[throttleControl.aktStufe];
 
 			//Geschwindigkeitsgrenze:
 			  if(pipapo == false)
 			  {
-				  vreg_out = 1.0-(float)((velocity-vgrenz)/(vmax-vgrenz));
-				  if(vreg_out >1.0)
+				  speedReg.vreg_out = 1.0-(float)((speedReg.velocity-speedReg.vgrenz)/(speedReg.vmax-speedReg.vgrenz));
+				  if(speedReg.vreg_out >1.0)
 				  {
-					  vreg_out = 1.0;
+					  speedReg.vreg_out = 1.0;
 				  }
-				  else if (vreg_out < 0.0)
+				  else if (speedReg.vreg_out < 0.0)
 				  {
-					  vreg_out = 0.0;
+					  speedReg.vreg_out = 0.0;
 				  }
-				  throttleControl.current_next = throttleControl.current_next*vreg_out;
+				  throttleControl.current_next = throttleControl.current_next*speedReg.vreg_out;
 			  }
 
 			  //Unterspannungs-regler:
@@ -894,16 +907,13 @@ void loop() {
 			 {
 				 throttleControl.current_next = throttleControl.current_now + MAX_STROMSTEIGUNG;
 			 }
-			 /*else if ((throttleControl.current_now - throttleControl.current_next) > MAX_STROMSTEIGUNG)
-			 {
-				 throttleControl.current_next = throttleControl.current_now - MAX_STROMSTEIGUNG;
-			 }*/
 	  	  }
 
-		  //wenn nicht pedaliert wird wird gleich auf 0 gestellt
+		  //not pedaling
 		  else
 		  {
 			  throttleControl.current_next = 0.0;
+			  notPedalingCounter++;
 		  }
 		  UART.setCurrent(throttleControl.current_next);
 		  throttleControl.current_now = throttleControl.current_next;
@@ -924,9 +934,9 @@ void loop() {
 		calculateSOC();
 
 		// bei bedarf Unterstuetzung auf default zurückstellen nach gewisser Zeit
-		/*if(pedaling == false && (millis()-lastTimePedaling) > TIME_TO_RESET_AFTER_PEDAL_STOP)
+		if(notPedalingCounter >= TIME_TO_RESET_AFTER_PEDAL_STOP && throttleControl.aktStufe > DEFAULT_STUFE)
 		{
 			throttleControl.aktStufe = DEFAULT_STUFE;
-		}*/
+		}
 	}
 }
