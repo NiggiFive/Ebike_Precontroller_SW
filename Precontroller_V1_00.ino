@@ -27,9 +27,9 @@ VescUart UART;
 
 //#define DISPLAY_CONNECTED		//uncomment if no Display Connected
 // Einstellung, ob VESC oder KU63 angeschlossen
-#define CTRLMODE VESC
-#define VESC 1
-#define KU63 0
+//#define CTRLMODE VESC
+//#define VESC 1
+//#define KU63 0
 
 //  Spannungsteiler Spannungssensierung:
 // 	Nominalwerte:
@@ -39,12 +39,8 @@ VescUart UART;
 #define RLOWER 2.2
 #define REFVOLT 5.00
 
-// Grenze zur Erkennung 6s vs. 9s Batterie
-#define BAT6S9S_GRENZE 27.0
-
 //Pins fuer Ein- und Ausgaenge
 #define INPUT_PAS 3
-
 #define INPUT_TASTER1 2
 #define INPUT_TASTER2 4		// -> Taster2 ueblicherweise fuer Licht?
 #define INPUT_3W_SW_RED 6
@@ -58,27 +54,6 @@ VescUart UART;
 #define LED 13
 
 #define SERIAL_MONITOR_BAUDRATE 9600
-
-// Geschwindigkeits-Stufen Ausgangsspannungen
-//#define STUFE5_V 3.75
-//#define STUFE4_V 3.25
-//#define STUFE3_V 2.75
-#define STUFE5_V 3.0
-#define STUFE4_V 2.7
-#define STUFE3_V 2.6
-#define STUFE2_V 2.5
-#define STUFE1_V 1.7
-#define STUFE0 0
-
-#define SCHIEBEHILFE STUFE1_V
-
-// Zeitfenster fuer Tastereingabe in ms
-#define TASTER_TIME_WINDOW 500
-
-#define CONV_PAS_TIME_TO_CADENCE 60000/PAS_MAGNETS
-
-//Haltezeit fuer Pedalsensierung in ms -> Berechnet aus Anzahl an Magneten und minimaler Kadenz
-#define PAS_TIMEOUT CONV_PAS_TIME_TO_CADENCE/MIN_CADENCE
 
 // 10ms Timer
 #define FAST_TIMER 10
@@ -103,44 +78,45 @@ U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(A5, A4);
 #endif
 
 //const float stufenV [6] = {0.0, STUFE1_V, STUFE2_V, STUFE3_V, STUFE4_V, STUFE5_V};
-int stufenI [ANZAHL_STUFEN+1] = {0, STUFE1_I, STUFE2_I, STUFE3_I, STUFE4_I};
+uint8_t stufenI [ANZAHL_STUFEN+1] = {0, STUFE1_I, STUFE2_I, STUFE3_I, STUFE4_I};
 
 unsigned long milliseconds;
 
 uint16_t notPedalingCounter;
 
+uint8_t resetFlagRegister = 0;
+
 struct batteryDataStruct
 {
 	uint8_t numberOfCells = 9;
 	float voltageArdu = 0.0;
-	float voltageVesc = 0.0;
-	float vbat = 0.0;
+	//float voltageVesc = 0.0;
 	float avgCellVolt = 0.0;
 	uint8_t SOC = 0;
-
-	float batteryCurrent = 0.0;
-	int drawnCharge = 0.0;
+	int16_t batteryPower = 0.0;
 };
+
 
 struct undervoltageRegStruct
 {
 	//fuer Undervoltage-Regler
-	float undervoltage_reg_out;
-	float undervoltage_reg_prop;
-	float undervoltage_reg_int;
-	float undervoltage_reg_diff;
-
-	const int undervoltage_reg_pterm = 3;
-	const float undervoltage_reg_iterm = 0.1;
-
+	float reg_out=0;
+	float reg_out_int=0;
+	float reg_out_filtered=0;
+	float reg_diff;
 };
 
 struct speedRegStruct
 {
 	//fuer Geschwindigkeits-Regler
-	const int vmax = MAX_SPEED_KMH;
-	const int vgrenz = VGRENZ;
+	//const uint8_t vmax = MAX_SPEED_KMH;
+	//const uint8_t vgrenz = VGRENZ;
+	//const uint16_t erpm_max = MAX_ERPM;
+	//const uint16_t erpm_grenz = ERPM_GRENZ;
+	//uint16_t vreg_diff = 0;
 	float vreg_out = 0.0;
+	float vreg_out_int = 0.0;
+	float vreg_out_filtered = 0.0;
 	float velocity = 0.0;
 };
 
@@ -149,36 +125,23 @@ speedRegStruct speedReg;
 batteryDataStruct batteryData;
 undervoltageRegStruct undervoltageReg;
 
-int temp_int;
+//int temp_int;
 
 uint8_t displayCounter;
 
-float motor_current;
-
-bool temp_bool;
+uint8_t vescConnectionErrors = 0;
 
 bool vesc_connected = false;
+
+bool headlight_on = true;
 
 bool pipapo = false;
 
 float undervoltageThreshold;
 
-/*struct vescDataStruct
-{
-	float avgMotorCurrent;
-	float avgInputCurrent;
-	float dutyCycleNow;
-	long rpm;
-	float inpVoltage;
-	float ampHours;
-	float ampHoursCharged;
-	long tachometer;
-	long tachometerAbs;
-};*/
-
 struct throttleControlStruct
 {
-  int aktStufe = DEFAULT_STUFE;
+  int8_t aktStufe = DEFAULT_STUFE;
   float current_next = 0.0;
   float current_now = 0.0;
   float throttleVoltage = 0.0;
@@ -188,11 +151,11 @@ struct throttleControlStruct
 
 struct tasterStruct
 {
-	int state = 0;
+	uint8_t state = 0;
 	bool ready = false;
 	bool edge_detected = false;
 	uint8_t edges = 0;
-	long int lastEvent = 0;
+	uint32_t lastEvent = 0;
 };
 
 tasterStruct taster1;
@@ -201,44 +164,44 @@ tasterStruct taster2;
 //tasterStruct tasterUp;
 //tasterStruct tasterDown;
 
-	int switchRed_state = false;
+	uint8_t switchRed_state = false;
 	bool switchRedGreen_ready = false;
 	bool seitchRed_edge_detected = false;
-	int switchRed_edges = 0;
-	long int switchRedGreen_lastEvent = 0;
+	uint8_t switchRed_edges = 0;
+	uint32_t switchRedGreen_lastEvent = 0;
 
-	int switchGreen_state = false;
+	uint8_t switchGreen_state = false;
 	//bool switchGreen_ready = false;
 	bool switchGreen_edge_detected = false;
-	int switchGreen_edges = 0;
+	uint8_t switchGreen_edges = 0;
 	//long int switchGreen_lastEvent = 0;
 
 
 //Variables for Timer
-	int slowTimerVariable = 0;
-	unsigned long lastSlowLoop;
-	unsigned long lastUltraSlowLoop;
-	unsigned long lastFastLoop;
+	//int slowTimerVariable = 0;
+	uint32_t lastSlowLoop;
+	uint32_t lastUltraSlowLoop;
+	uint32_t lastFastLoop;
 	bool slowTimerFlag = false;
-	int fastTimerVariable = 0;
+	//int fastTimerVariable = 0;
 	bool fastTimerFlag = false;
-	int ultraslowTimerVariable = 0;
+	//int ultraslowTimerVariable = 0;
 	bool ultraslowTimerFlag = false;
 
 	struct pasStruct
 	{
 		//Variables for PAS
-		const uint8_t pas_allowed_fails = 1;
+		//const uint8_t pas_allowed_fails = 1;
 		const bool doubleHall = DOUBLE_HALL;
 		uint16_t pasTimeHigh = 0;
 		uint16_t pasTimeLow = 0;
-		unsigned long last_pas_event = 0;
+		uint16_t pasTimeGesamt = 0;
+		uint32_t last_pas_event = 0;
 		bool pas_status = false;
 		uint16_t pas_factor = 0;
 		uint16_t pas_factor_filtered = 0;
 		uint16_t pas_factor_int = 0;
-		uint16_t pas_fails;
-		uint16_t cadence = 0;
+		//uint16_t cadence = 0;
 		bool pedaling = false;
 
 	};
@@ -266,10 +229,18 @@ void pas_ISR()
 		pasData.pasTimeHigh = millis()-pasData.last_pas_event;
 	}
 	pasData.last_pas_event = millis();
-	pasData.cadence = CONV_PAS_TIME_TO_CADENCE/(pasData.pasTimeLow+pasData.pasTimeHigh);
+
+	pasData.pasTimeGesamt = pasData.pasTimeLow+pasData.pasTimeHigh;
+	//TODO: Diese Division könnte man eigentlich vermeiden
+	//pasData.cadence = CONV_PAS_TIME_TO_CADENCE/(pasData.pasTimeLow+pasData.pasTimeHigh);
 
 	if(pasData.doubleHall == false)
 	{	// wenn man keinen Double-Hall-Sensor hat muss man den PAS-Faktor mit einbeziehen
+		if(pasData.pasTimeLow == 0)
+		{
+			// um keine division durch 0 zu machen!
+			pasData.pasTimeLow = 1;
+		}
 		pasData.pas_factor = 100*pasData.pasTimeHigh/pasData.pasTimeLow;
 			if(pasData.pas_factor > 200)
 			{
@@ -280,25 +251,21 @@ void pas_ISR()
 		pasData.pas_factor_int +=(pasData.pas_factor-pasData.pas_factor_filtered);
 		pasData.pas_factor_filtered = pasData.pas_factor_int >>1;
 
-		if(pasData.cadence>=MIN_CADENCE && pasData.pas_factor_filtered > PAS_FACTOR_MIN)
+		if(pasData.pasTimeGesamt <= PAS_TIMEOUT && pasData.pas_factor_filtered > PAS_FACTOR_MIN)
 		{
 			pasData.pedaling = true;
-			pasData.pas_fails = 0;
 		}
 		else
 		{
 			pasData.pedaling = false;
-			/*pasData.pas_fails++;
-			if(pasData.pas_fails > pasData.pas_allowed_fails)
-			{
-				pasData.pedaling = false;
-			}*/
 		}
 	}
 	else
 	{
 		// mit Double-Hall-Sensor muss man nur die Cadence überprüfen
-		if(pasData.cadence>=MIN_CADENCE)
+		//if(pasData.cadence>=MIN_CADENCE)
+		//statt der kadenz kann man auch die PAS-Time überprüfen, dadurch spart man sich die Berechnung der Kadenz (division)
+		if(pasData.pasTimeGesamt <= PAS_TIMEOUT)
 		{
 			pasData.pedaling = true;
 		}
@@ -309,18 +276,14 @@ void pas_ISR()
 	}
 }
 
-/*void taster_ISR()
-{
-
-}*/
 
 void checkTaster()
 {
 	//taster1_state = digitalRead(INPUT_TASTER1);
 	//taster2_state = digitalRead(INPUT_TASTER2);
 
-	temp_int = digitalRead(INPUT_3W_SW_RED);
-	if(temp_int == 0 && switchRed_state == 1)		//fallende Flanke erkannt
+	uint8_t temp = digitalRead(INPUT_3W_SW_RED);
+	if(temp == 0 && switchRed_state == 1)		//fallende Flanke erkannt
 	{
 		if(switchRedGreen_ready == false)		//Tastereingaben nur auswerten wenn das Zeitfenster noch nicht rum ist
 		{
@@ -328,12 +291,12 @@ void checkTaster()
 		}
 		switchRedGreen_lastEvent = millis();
 	}
-	switchRed_state = temp_int;
+	switchRed_state = temp;
 
 
 	//Pin auslesen
-	temp_int = digitalRead(INPUT_3W_SW_GREEN);
-	if(temp_int == 0 && switchGreen_state == 1)		//fallende Flanke erkannt
+	temp = digitalRead(INPUT_3W_SW_GREEN);
+	if(temp == 0 && switchGreen_state == 1)		//fallende Flanke erkannt
 	{
 		switchGreen_edge_detected = true;
 		/*if(switchRedGreen_ready == false)
@@ -344,7 +307,7 @@ void checkTaster()
 	}
 
 	//keine Flanke erkannt aber noch auf low-level -> flanke bestätigen (Entprellung)
-	else if (temp_int == 0 && switchGreen_state == 0)
+	else if (temp == 0 && switchGreen_state == 0)
 	{
 		if(switchGreen_edge_detected == true && switchRedGreen_ready == false)
 		{
@@ -357,7 +320,7 @@ void checkTaster()
 	{
 		switchGreen_edge_detected = false;
 	}
-	switchGreen_state = temp_int;
+	switchGreen_state = temp;
 
 	if(millis()-switchRedGreen_lastEvent > TASTER_TIME_WINDOW && (switchRed_edges>0 || switchGreen_edges >0))
 	{
@@ -376,7 +339,20 @@ void interpretInputs()
 	{
 		if(switchRed_edges == 1 && switchGreen_edges == 4)
 		{
-			pipapo = true;
+			pipapo = !pipapo;
+		}
+		else if (switchRed_edges==2 && switchGreen_edges == 1)
+		{
+			if(headlight_on == true)
+			{
+				headlight_on = false;
+				digitalWrite(OUTPUT_LIGHT, LOW);
+			}
+			else
+			{
+				headlight_on = true;
+				digitalWrite(OUTPUT_LIGHT, HIGH);
+			}
 		}
 		else
 		{
@@ -409,36 +385,10 @@ void interpretInputs()
 // Batteriespannung auslesen und umrechnen
 void readBattVoltArdu()
 {
-  temp_int = analogRead(INPUT_BATSENSE);
-  batteryData.voltageArdu = (float)((temp_int*REFVOLT/1024.0)*(RUPPER+RLOWER)/RLOWER);
+  int temp = analogRead(INPUT_BATSENSE);
+  batteryData.voltageArdu = (float)((temp*REFVOLT/1024.0)*(RUPPER+RLOWER)/RLOWER);
 }
 
-// 1ms-Timer-ISR
-/*void timer1_ISR()
-{
-	// Variable fuer zweiten und dritten Timer hochzaehlen
-	fastTimerVariable++;
-	slowTimerVariable++;
-	ultraslowTimerVariable++;
-
-	//10ms-Timer:
-  if (fastTimerVariable >= FAST_TIMER)
-  {
-
-  }
-
-  //100ms-Timer
-  if(slowTimerVariable >= SLOW_TIMER)
-	{
-
-	}
-
-  //1s-Timer
-  if(ultraslowTimerVariable >= ULTRA_SLOW_TIMER)
-	{
-
-	}
-}*/
 
 void calculateSOC()
 {
@@ -468,7 +418,8 @@ void calculateSOC()
 	 */
 	if(vesc_connected)
 	{
-		batteryData.avgCellVolt = batteryData.voltageVesc/batteryData.numberOfCells;
+		//batteryData.avgCellVolt = batteryData.voltageVesc/batteryData.numberOfCells;
+		batteryData.avgCellVolt = UART.data.inpVoltage/batteryData.numberOfCells;
 	}
 	else
 	{
@@ -564,8 +515,6 @@ void calculateSOC()
 void setThrottlePWM()
 {
   analogWrite(OUTPUT_THROTTLE, throttleControl.throttleVoltage/5*255.0);
-  if(vesc_connected){
-  }
 }
 
 
@@ -590,20 +539,21 @@ void refreshu8x8Display()
 		  u8x8.setCursor(0,2);
 		  if(vesc_connected)
 		  {
-			  u8x8.print((int)batteryData.voltageVesc);
+			  u8x8.print((int)UART.data.inpVoltage);
 		  }
 		  else
 		  {
 			  u8x8.print((int)batteryData.voltageArdu);
 		  }
 
-		  u8x8.print(("V  "));
+		  u8x8.print(F("V  "));
 		  //SOC Ausgeben
 		  u8x8.print(batteryData.SOC);
-		  u8x8.print(("% "));
+		  u8x8.print(F("% "));
 
-		  u8x8.print(batteryData.drawnCharge);
+		  u8x8.print((int)(UART.data.ampHours*1000));
 		  u8x8.print(F("mAh"));
+
 		  }
 
 	  else if (displayCounter == 2)
@@ -632,12 +582,32 @@ void refreshu8x8Display()
 		  u8x8.clearLine(6);
 		  u8x8.clearLine(7);
 		  u8x8.setCursor(0,6);
+		  u8x8.print(vescConnectionErrors);
 
-		  u8x8.print((int)velocity);
+		  /*u8x8.print((int)speedReg.velocity);
 		  u8x8.print(F("km/h "));
 
-		  u8x8.print((int)batteryData.batteryCurrent);
-		  u8x8.print(("A"));
+		  u8x8.print((int)UART.data.avgInputCurrent);
+		  u8x8.print(("A"));*/
+
+		  /*if (resetFlagRegister & _BV(EXTRF))
+		  {
+		      // Reset button or otherwise some software reset
+		      u8x8.print(F("Reset button"));
+		  }
+		  if (resetFlagRegister & (_BV(BORF) | _BV(PORF)))
+		  {
+		       // Brownout or Power On
+		       u8x8.print(F("Power loss"));
+		  }
+		  if (resetFlagRegister & _BV(WDRF)){
+		       //Watchdog Reset
+		       u8x8.print(F("Watchdog"));
+		  }
+		  else
+		  {
+			  u8x8.print(resetFlagRegister);
+		  }*/
 
 
 	  }
@@ -657,6 +627,10 @@ void refreshu8x8Display()
 void setup()
 {
   // put your setup code here, to run once:
+
+	//resetFlagRegister = MCUSR;
+	 // Clear all MCUSR registers immediately for 'next use'
+	MCUSR = 0;
 
 	// Pin A4 als Ausgang einstellen (fuer I2C)
 	pinMode(PIN_A4, OUTPUT);
@@ -688,6 +662,7 @@ void setup()
 	pinMode(OUTPUT_LIGHT, OUTPUT);
 	//Licht anschalten
 	digitalWrite(OUTPUT_LIGHT, HIGH);
+	headlight_on = true;
 
 	//LED auf ArduinoNano Pin 13
 	pinMode(LED, OUTPUT);
@@ -719,7 +694,7 @@ void setup()
 	//Timer1.attachInterrupt(timer1_ISR);
 
 	//Delay bis VESC ready ist:
-	delay(2000);
+	delay(1000);
 
 	// zusammen mit VESC kann man die serielle Schnittstelle nicht mehr nehmen
 	//Serial.begin(9600);
@@ -741,7 +716,7 @@ void setup()
 		}
 	}
 
-	//wenn kein Vesc dran huengt serielle Schnittstelle beenden
+	//wenn kein Vesc dran haengt serielle Schnittstelle beenden
 	if(vesc_connected == false)
 	{
 		Serial.end();
@@ -749,7 +724,6 @@ void setup()
 	else
 	{	//VESC ist dran
 		// Zellspannung einmal abfragen fuer 6s-9s-Erkennung:
-		//readBattVolt();
 		if (UART.data.inpVoltage > BAT6S9S_GRENZE)
 		{
 			batteryData.numberOfCells = 9;
@@ -780,6 +754,7 @@ void loop() {
 		pasData.pas_factor = 0;
 		pasData.pas_factor_filtered = 0;
 	}
+	//pasData.cadence = CONV_PAS_TIME_TO_CADENCE/(pasData.pasTimeLow+pasData.pasTimeHigh);
 
 	// Schnelle Routine -> hier werden nur die Taster ausgelesen
 	if((millis()-lastFastLoop) > FAST_TIMER)
@@ -812,46 +787,84 @@ void loop() {
 
 	  if(vesc_connected)
 	  {
+		  uint8_t vescErrorsTemp = vescConnectionErrors;
 		  //3mal versuchen auszulesen
-		for(int i = 0; i<3; i++)
-		{
+		//for(int i = 0; i<3; i++)
+		//{
 			if(UART.getVescValues())
 			{
-				break;
+				batteryData.batteryPower = UART.data.inpVoltage * UART.data.avgInputCurrent;
+
+				//wenn die Eingangsspannung unter die Grenze sinkt -> Unterstützungsstufe zurückschalten
+				/*if(batteryData.voltageVesc < undervoltageThreshold)
+				{
+					if(throttleControl.aktStufe > 0)
+					{
+						throttleControl.aktStufe--;
+					}
+				}*/
+
+				 //Geschwindigkeit berechnen aus ausgelesener RPM
+				speedReg.velocity = UART.data.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
+				//speedReg.rpm = UART.data.rpm;
+
+				// Geschwindigkeitsregler
+				speedReg.vreg_out = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
+				//Regeldifferenz:
+				//speedReg.vreg_out = speedReg.erpm_max - speedReg.rpm;
+				//speedReg.vreg_out = speedReg.vreg_out/(float)((speedReg.erpm_max-speedReg.erpm_grenz));
+				  if(speedReg.vreg_out >1.0)
+				  {
+					  speedReg.vreg_out = 1.0;
+				  }
+				  else if (speedReg.vreg_out < 0.0)
+				  {
+					  speedReg.vreg_out = 0.0;
+				  }
+
+				  //PT1-Filterung des Reglerausgangs:
+				  speedReg.vreg_out_int += (speedReg.vreg_out - speedReg.vreg_out_filtered);
+				  speedReg.vreg_out_filtered = speedReg.vreg_out_int / 8;
+
+
+				  //Unterspannungs-regler:
+				  undervoltageReg.reg_diff = UART.data.inpVoltage - undervoltageThreshold;
+				  undervoltageReg.reg_out = undervoltageReg.reg_diff;
+				  if(undervoltageReg.reg_out > 1.0)
+				  {
+					  undervoltageReg.reg_out = 1.0;
+				  }
+				  else if (undervoltageReg.reg_out < 0.0)
+				  {
+					  undervoltageReg.reg_out = 0.0;
+				  }
+
+				  // Filterung des Reglerausgangs
+				  undervoltageReg.reg_out_int = undervoltageReg.reg_out_int + undervoltageReg.reg_out - undervoltageReg.reg_out_filtered;
+				  undervoltageReg.reg_out_filtered = undervoltageReg.reg_out_int / 20;
+
+				//break;
 			}
 			//wenns beim dritten Mal nicht geklappt hat stimmt wohl was nicht
-			else if(i>=2)
+			//else if(i>=2)
+				  else
 			{
-				vesc_connected = false;
-				Serial.end();
-				digitalWrite(LED, LOW);
+				vescConnectionErrors++;
+				//vesc_connected = false;
+				//Serial.end();
+				//digitalWrite(LED, LOW);
 			}
+		//}
+			// wenn ein Fehler aufgetreten ist bei der Übertragung starte ich einfach die Schnittstelle neu
+		if(vescErrorsTemp != vescConnectionErrors)
+		{
+			Serial.end();
+			Serial.begin(VESC_BAUDRATE);
+
+			// aus VESC-ARduino Beispiel, ich vermute zum abwarten bis serielle Schnittstelle bereit
+			while (!Serial) {;}
+			UART.setSerialPort(&Serial);
 		}
-	  }
-	  else
-	  {
-		  readBattVoltArdu();
-	  }
-
-	  if(vesc_connected)
-	  {
-		  batteryData.voltageVesc = UART.data.inpVoltage;
-		  batteryData.batteryCurrent = UART.data.avgInputCurrent;
-		  batteryData.drawnCharge = 1000*UART.data.ampHours;
-
-		  motor_current = UART.data.avgMotorCurrent;
-
-		  //wenn die Eingangsspannung unter die Grenze sinkt -> Unterstützungsstufe zurückschalten
-		  if(batteryData.voltageVesc < undervoltageThreshold)
-		  {
-			  if(throttleControl.aktStufe > 0)
-			  {
-				  throttleControl.aktStufe--;
-			  }
-		  }
-
-		  //Geschwindigkeit berechnen aus ausgelesener RPM
-		  speedReg.velocity = UART.data.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
 
 		  if(pasData.pedaling == true)
 		  {
@@ -861,41 +874,11 @@ void loop() {
 			//Geschwindigkeitsgrenze:
 			  if(pipapo == false)
 			  {
-				  speedReg.vreg_out = 1.0-(float)((speedReg.velocity-speedReg.vgrenz)/(speedReg.vmax-speedReg.vgrenz));
-				  if(speedReg.vreg_out >1.0)
-				  {
-					  speedReg.vreg_out = 1.0;
-				  }
-				  else if (speedReg.vreg_out < 0.0)
-				  {
-					  speedReg.vreg_out = 0.0;
-				  }
-				  throttleControl.current_next = throttleControl.current_next*speedReg.vreg_out;
+				  throttleControl.current_next = throttleControl.current_next*speedReg.vreg_out_filtered;
 			  }
 
-			  //Unterspannungs-regler:
-			  /*undervoltage_reg_diff = undervoltageThreshold - voltageVesc;
-			  undervoltage_reg_int += (undervoltage_reg_diff * undervoltage_reg_iterm);
-			  undervoltage_reg_prop = (undervoltage_reg_diff * undervoltage_reg_pterm);
-			  undervoltage_reg_out = undervoltage_reg_int + undervoltage_reg_out;
-
-			  // der Unterspannungsregler darf den Strom nur verringern, nicht erhöhen im vgl. zum normalen Wert
-			  /*if(undervoltage_reg_out > throttleControl.current_next)
-			  {
-				  //integralanteil festhalten (anti-wind-up)
-				  undervoltage_reg_int -= (undervoltage_reg_diff * undervoltage_reg_iterm);
-			  }
-			  else
-			  {
-				  if(undervoltage_reg_out < 0)
-				  {
-					  //kleinere Ströme als 0 gehen nicht + Anti-Windup
-					  undervoltage_reg_out = 0.0;
-					  undervoltage_reg_int = 0.0;
-				  }
-				  //Strom muss begrenzt werden
-				  throttleControl.current_next = undervoltage_reg_out;
-			  }*/
+			  // Unterspannungsgrenze
+			  throttleControl.current_next = throttleControl.current_next * undervoltageReg.reg_out_filtered;
 
 			 if(throttleControl.current_next <= 0.0)
 			 {
@@ -907,6 +890,11 @@ void loop() {
 			 {
 				 throttleControl.current_next = throttleControl.current_now + MAX_STROMSTEIGUNG;
 			 }
+			 //Maximale negative Stromsteigung beachten
+			 else if ((throttleControl.current_now - throttleControl.current_next) > MAX_STROMSTEIGUNG)
+			 {
+				 throttleControl.current_next = throttleControl.current_now - 10;
+			 }
 	  	  }
 
 		  //not pedaling
@@ -915,8 +903,14 @@ void loop() {
 			  throttleControl.current_next = 0.0;
 			  notPedalingCounter++;
 		  }
+
 		  UART.setCurrent(throttleControl.current_next);
 		  throttleControl.current_now = throttleControl.current_next;
+
+	  }
+	  else
+	  {
+		  readBattVoltArdu();
 	  }
   }
 
@@ -927,6 +921,7 @@ void loop() {
 		ultraslowTimerFlag = false;
 
 #ifdef DISPLAY_CONNECTED
+
 		refreshu8x8Display();
 #endif
 
@@ -934,9 +929,9 @@ void loop() {
 		calculateSOC();
 
 		// bei bedarf Unterstuetzung auf default zurückstellen nach gewisser Zeit
-		if(notPedalingCounter >= TIME_TO_RESET_AFTER_PEDAL_STOP && throttleControl.aktStufe > DEFAULT_STUFE)
+		/*if(notPedalingCounter >= TIME_TO_RESET_AFTER_PEDAL_STOP && throttleControl.aktStufe > DEFAULT_STUFE)
 		{
 			throttleControl.aktStufe = DEFAULT_STUFE;
-		}
+		}*/
 	}
 }
