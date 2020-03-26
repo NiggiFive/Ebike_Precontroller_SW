@@ -1,4 +1,4 @@
-/*Hier kommen alle Parameter ein, die man ändern können soll, je nach Anwendung
+/*Hier kommen alle Parameter ein, die man ï¿½ndern kï¿½nnen soll, je nach Anwendung
  * config.h
  *
  *  Created on: 14.02.2020
@@ -10,7 +10,7 @@
 
 #define DISPLAY_CONNECTED
 
-//UART-Geschwindigkeit für VESC einstellen:
+//UART-Geschwindigkeit fï¿½r VESC einstellen:
 //#define VESC_BAUDRATE 19200
 //#define VESC_BAUDRATE 28800
 //#define VESC_BAUDRATE 115200
@@ -18,7 +18,7 @@
 
 //Anzahl Polpaare
 #define MOTOR_POLE_PAIRS 	10
-//Uebersetzungsverhältnis des Planetengetriebes (falls vorhanden, sonst 1)
+//Uebersetzungsverhï¿½ltnis des Planetengetriebes (falls vorhanden, sonst 1)
 #define MOTOR_GEAR_RATIO 	4.42
 //Radumfang in Metern
 //fuer 28 Zoll (Schwalbe Marathon)
@@ -29,15 +29,15 @@
 
 // Maximale Geschwindigkeit fuer Unterstuetzung
 #define MAX_SPEED_KMH 		27
-//Geschwindigkeit ab der der Strom zurückgenommen wird
+//Geschwindigkeit ab der der Strom zurï¿½ckgenommen wird
 #define VGRENZ				23
 #define MAX_RPM 			(MAX_SPEED_KMH*1000)/(RADUMFANG*60)
 #define MAX_ERPM			MAX_RPM*MOTOR_POLE_PAIRS*MOTOR_GEAR_RATIO
 #define RPM_GRENZ			(VGRENZ*1000)/(RADUMFANG*60)
 #define ERPM_GRENZ			RPM_GRENZ*MOTOR_POLE_PAIRS*MOTOR_GEAR_RATIO
 
-//Max ERPM (für VESC Konfiguration):
-//für VMAX = 27km/h
+//Max ERPM (fï¿½r VESC Konfiguration):
+//fï¿½r VMAX = 27km/h
 //26 Zoll : ERPM_max = 9340
 //28 Zoll : ERPM_max = 9230
 
@@ -50,7 +50,7 @@
 #define BAT6S9S_GRENZE 26.0
 
 // Werte fuer Pedalsensierung:
-#define DOUBLE_HALL	0			// 1 für Double-Hall-Sensor, 0 für non-double-Hall
+#define DOUBLE_HALL	0			// 1 fï¿½r Double-Hall-Sensor, 0 fï¿½r non-double-Hall
 #define PAS_MAGNETS 10			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12
 #define MIN_CADENCE	25			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
 
@@ -59,9 +59,9 @@
 //Haltezeit fuer Pedalsensierung in ms -> Berechnet aus Anzahl an Magneten und minimaler Kadenz
 #define PAS_TIMEOUT CONV_PAS_TIME_TO_CADENCE/MIN_CADENCE
 
-#define PAS_FACTOR_MIN	110		// Wichtig um Vorwaerts und Rueckwaerts-Pedalieren unterscheiden zu können bei non-double-Hall-Sensoren
+#define PAS_FACTOR_MIN	110		// Wichtig um Vorwaerts und Rueckwaerts-Pedalieren unterscheiden zu kï¿½nnen bei non-double-Hall-Sensoren
 
-// Zeit (in 100ms-Schritten), nach der beim aufhören zu Pedalieren die Utnerstuetzungsstufe wieder auf den default-Wert zurückgesetzt wird
+// Zeit (in 100ms-Schritten), nach der beim aufhï¿½ren zu Pedalieren die Utnerstuetzungsstufe wieder auf den default-Wert zurï¿½ckgesetzt wird
 #define TIME_TO_RESET_AFTER_PEDAL_STOP	100
 
 // Zeitfenster fuer Tastereingabe in ms
@@ -76,7 +76,7 @@
 #define STUFE2_I 12
 #define STUFE1_I 6 		// 4A war ziemlich wenig
 
-// Geschwindigkeits-Stufen Ausgangsspannungen für Ku-63
+// Geschwindigkeits-Stufen Ausgangsspannungen fï¿½r Ku-63
 //#define STUFE5_V 3.75
 //#define STUFE4_V 3.25
 //#define STUFE3_V 2.75

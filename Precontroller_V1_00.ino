@@ -8,6 +8,7 @@
 
 #include "MemoryFree.h"
 #include <Wire.h>
+#include <avr/wdt.h>
 //#include "Adafruit_GFX.h"
 //#include "Adafruit_SSD1306.h"
 
@@ -100,10 +101,10 @@ struct batteryDataStruct
 struct undervoltageRegStruct
 {
 	//fuer Undervoltage-Regler
-	float reg_out=0;
+	//float reg_out=0;
 	float reg_out_int=0;
 	float reg_out_filtered=0;
-	float reg_diff;
+	//float reg_diff;
 };
 
 struct speedRegStruct
@@ -114,7 +115,7 @@ struct speedRegStruct
 	//const uint16_t erpm_max = MAX_ERPM;
 	//const uint16_t erpm_grenz = ERPM_GRENZ;
 	//uint16_t vreg_diff = 0;
-	float vreg_out = 0.0;
+	//float vreg_out = 0.0;
 	float vreg_out_int = 0.0;
 	float vreg_out_filtered = 0.0;
 	float velocity = 0.0;
@@ -166,7 +167,7 @@ tasterStruct taster2;
 
 	uint8_t switchRed_state = false;
 	bool switchRedGreen_ready = false;
-	bool seitchRed_edge_detected = false;
+	bool switchRed_edge_detected = false;
 	uint8_t switchRed_edges = 0;
 	uint32_t switchRedGreen_lastEvent = 0;
 
@@ -285,11 +286,22 @@ void checkTaster()
 	uint8_t temp = digitalRead(INPUT_3W_SW_RED);
 	if(temp == 0 && switchRed_state == 1)		//fallende Flanke erkannt
 	{
-		if(switchRedGreen_ready == false)		//Tastereingaben nur auswerten wenn das Zeitfenster noch nicht rum ist
+		switchRed_edge_detected = true;
+	}
+
+	//keine Flanke erkannt aber noch auf low-level -> flanke bestätigen (Entprellung)
+	else if (temp == 0 && switchRed_state == 0)
+	{
+		if(switchRed_edge_detected == true && switchRedGreen_ready == false)
 		{
 			switchRed_edges++;
+			switchRedGreen_lastEvent = millis();
+			switchRed_edge_detected = false;
 		}
-		switchRedGreen_lastEvent = millis();
+	}
+	else if(switchRed_edge_detected == true)
+	{
+		switchRed_edge_detected = false;
 	}
 	switchRed_state = temp;
 
@@ -299,11 +311,6 @@ void checkTaster()
 	if(temp == 0 && switchGreen_state == 1)		//fallende Flanke erkannt
 	{
 		switchGreen_edge_detected = true;
-		/*if(switchRedGreen_ready == false)
-		{
-			switchGreen_edges++;
-		}
-		switchRedGreen_lastEvent = millis();*/
 	}
 
 	//keine Flanke erkannt aber noch auf low-level -> flanke bestätigen (Entprellung)
@@ -735,6 +742,7 @@ void setup()
 			undervoltageThreshold = UNDERVOLTAGE_6S;
 		}
 	}
+	//wdt_enable(WDTO_8S);
 }
 
 void loop() {
@@ -809,38 +817,39 @@ void loop() {
 				//speedReg.rpm = UART.data.rpm;
 
 				// Geschwindigkeitsregler
-				speedReg.vreg_out = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
+				//speedReg.vreg_out = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
+				float regOut = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
 				//Regeldifferenz:
 				//speedReg.vreg_out = speedReg.erpm_max - speedReg.rpm;
 				//speedReg.vreg_out = speedReg.vreg_out/(float)((speedReg.erpm_max-speedReg.erpm_grenz));
-				  if(speedReg.vreg_out >1.0)
+				  if(regOut >1.0)
 				  {
-					  speedReg.vreg_out = 1.0;
+					  regOut = 1.0;
 				  }
-				  else if (speedReg.vreg_out < 0.0)
+				  else if (regOut < 0.0)
 				  {
-					  speedReg.vreg_out = 0.0;
+					  regOut = 0.0;
 				  }
 
 				  //PT1-Filterung des Reglerausgangs:
-				  speedReg.vreg_out_int += (speedReg.vreg_out - speedReg.vreg_out_filtered);
+				  speedReg.vreg_out_int += (regOut - speedReg.vreg_out_filtered);
 				  speedReg.vreg_out_filtered = speedReg.vreg_out_int / 8;
 
 
 				  //Unterspannungs-regler:
-				  undervoltageReg.reg_diff = UART.data.inpVoltage - undervoltageThreshold;
-				  undervoltageReg.reg_out = undervoltageReg.reg_diff;
-				  if(undervoltageReg.reg_out > 1.0)
+				  regOut = UART.data.inpVoltage - undervoltageThreshold;
+				  //undervoltageReg.reg_out = undervoltageReg.reg_diff;
+				  if(regOut > 1.0)
 				  {
-					  undervoltageReg.reg_out = 1.0;
+					  regOut = 1.0;
 				  }
-				  else if (undervoltageReg.reg_out < 0.0)
+				  else if (regOut < 0.0)
 				  {
-					  undervoltageReg.reg_out = 0.0;
+					  regOut = 0.0;
 				  }
 
 				  // Filterung des Reglerausgangs
-				  undervoltageReg.reg_out_int = undervoltageReg.reg_out_int + undervoltageReg.reg_out - undervoltageReg.reg_out_filtered;
+				  undervoltageReg.reg_out_int = undervoltageReg.reg_out_int + regOut - undervoltageReg.reg_out_filtered;
 				  undervoltageReg.reg_out_filtered = undervoltageReg.reg_out_int / 20;
 
 				//break;
@@ -921,8 +930,11 @@ void loop() {
 		ultraslowTimerFlag = false;
 
 #ifdef DISPLAY_CONNECTED
-
+		//noInterrupts();
+		detachInterrupt(digitalPinToInterrupt(INPUT_PAS));
 		refreshu8x8Display();
+		attachInterrupt(digitalPinToInterrupt(INPUT_PAS), pas_ISR, CHANGE);
+		//interrupts();
 #endif
 
 		lastUltraSlowLoop = millis();
@@ -934,4 +946,5 @@ void loop() {
 			throttleControl.aktStufe = DEFAULT_STUFE;
 		}*/
 	}
+	//wdt_reset();
 }
