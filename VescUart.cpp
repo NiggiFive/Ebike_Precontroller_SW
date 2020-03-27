@@ -29,76 +29,65 @@ int ReceiveUartMessage(uint8_t* payloadReceived, int num) {
 	//Messages <= 255 start with 2. 2nd byte is length
 	//Messages >255 start with 3. 2nd and 3rd byte is length combined with 1st >>8 and then &0xFF
 
-	int counter = 0;
-	int endMessage = 256;
+	uint16_t counter = 0;
+	uint16_t endMessage = 256;
 	bool messageRead = false;
 	uint8_t messageReceived[256];
-	int lenPayload = 0;
+	uint16_t lenPayload = 0;
 	HardwareSerial *serial;
 	serial=&Serial;
-	#ifdef __AVR_ATmega2560__
-	switch (num) {
-		case 0:
-			serial=&Serial;
-			break;
-		case 1:
-			serial=&Serial1;
-			break;
-		case 2:
-			serial=&Serial2;
-			break;
-		case 3:
-			serial=&Serial3;
-			break;
-		default:
-			break;
-	}
-	#endif
-	while (serial->available()) {
+	uint32_t timeout = millis() + 100; // Defining the timestamp for timeout (100ms before timeout)
 
-		messageReceived[counter++] = serial->read();
+	while ( millis() < timeout && messageRead == false) {
 
-		if (counter == 2) {//case if state of 'counter' with last read 1
+		while (serial->available()) {
 
-			switch (messageReceived[0])
-			{
-			case 2:
-				endMessage = messageReceived[1] + 5; //Payload size + 2 for sice + 3 for SRC and End.
-				lenPayload = messageReceived[1];
-				break;
-			case 3:
-				//ToDo: Add Message Handling > 255 (starting with 3)
-				break;
-			default:
+			messageReceived[counter++] = serial->read();
+
+			if (counter == 2) {
+
+				switch (messageReceived[0])
+				{
+					case 2:
+						endMessage = messageReceived[1] + 5; //Payload size + 2 for sice + 3 for SRC and End.
+						lenPayload = messageReceived[1];
+					break;
+
+					case 3:
+						// ToDo: Add Message Handling > 255 (starting with 3)
+
+					break;
+
+					default:
+					break;
+				}
+			}
+
+			if (counter >= sizeof(messageReceived)) {
 				break;
 			}
 
-		}
-		if (counter >= sizeof(messageReceived))
-		{
-			break;
-		}
-
-		if (counter == endMessage && messageReceived[endMessage - 1] == 3) {//+1: Because of counter++ state of 'counter' with last read = "endMessage"
-			messageReceived[endMessage] = 0;
-#ifdef DEBUG
-			DEBUGSERIAL.println("End of message reached!");
-#endif
-			messageRead = true;
-			break; //Exit if end of message is reached, even if there is still more data in buffer.
+			if (counter == endMessage && messageReceived[endMessage - 1] == 3) {
+				messageReceived[endMessage] = 0;
+				messageRead = true;
+				break; // Exit if end of message is reached, even if there is still more data in the buffer.
+			}
 		}
 	}
+
 	bool unpacked = false;
+
 	if (messageRead) {
 		unpacked = UnpackPayload(messageReceived, endMessage, payloadReceived, messageReceived[1]);
 	}
-	if (unpacked)
-	{
-		return lenPayload; //Message was read
 
+	if (unpacked) {
+		// Message was read
+		return lenPayload;
 	}
 	else {
-		return 0; //No Message Read
+		// No Message Read
+		return 0;
 	}
 }
 
@@ -157,7 +146,8 @@ int PackSendPayload(uint8_t* payload, int lenPay, int num) {
 	messageSend[count++] = (uint8_t)(crcPayload >> 8);
 	messageSend[count++] = (uint8_t)(crcPayload & 0xFF);
 	messageSend[count++] = 3;
-	messageSend[count] = NULL;
+	//messageSend[count] = NULL;
+	messageSend[count] = '\0';
 
 #ifdef DEBUG
 	DEBUGSERIAL.print("UART package send: "); SerialPrint(messageSend, count);
@@ -165,25 +155,8 @@ int PackSendPayload(uint8_t* payload, int lenPay, int num) {
 #endif // DEBUG
 
 
-	HardwareSerial *serial;
-	#ifdef __AVR_ATmega2560__
-	switch (num) {
-		case 0:
-			serial=&Serial;
-			break;
-		case 1:
-			serial=&Serial1;
-			break;
-		case 2:
-			serial=&Serial2;
-			break;
-		case 3:
-			serial=&Serial3;
-			break;
-		default:
-			break;
-	}
-	#endif
+	HardwareSerial *serial=&Serial;
+
 	//Sending package
 	serial->write(messageSend, count);
 
@@ -194,7 +167,7 @@ int PackSendPayload(uint8_t* payload, int lenPay, int num) {
 
 
 bool ProcessReadPacket(uint8_t* message, bldcMeasure& values, int len) {
-	COMM_PACKET_ID packetId;
+	/*COMM_PACKET_ID packetId;
 	int32_t ind = 0;
 
 	packetId = (COMM_PACKET_ID)message[0];
@@ -220,6 +193,36 @@ bool ProcessReadPacket(uint8_t* message, bldcMeasure& values, int len) {
 	default:
 		return false;
 		break;
+	}*/
+
+	COMM_PACKET_ID packetId;
+	int32_t ind = 0;
+
+	packetId = (COMM_PACKET_ID)message[0];
+	message++; // Removes the packetId from the actual message (payload)
+
+	switch (packetId){
+		case COMM_GET_VALUES: // Structure defined here: https://github.com/vedderb/bldc/blob/43c3bbaf91f5052a35b75c2ff17b5fe99fad94d1/commands.c#L164
+
+			ind = 4; // Skip the first 4 bytes
+			values.avgMotorCurrent 	= buffer_get_float32(message, 100.0, &ind);
+			values.avgInputCurrent 	= buffer_get_float32(message, 100.0, &ind);
+			ind += 8; // Skip the next 8 bytes
+			values.dutyCycleNow 		= buffer_get_float16(message, 1000.0, &ind);
+			values.rpm 				= buffer_get_int32(message, &ind);
+			values.inpVoltage 		= buffer_get_float16(message, 10.0, &ind);
+			values.ampHours 			= buffer_get_float32(message, 10000.0, &ind);
+			values.ampHoursCharged 	= buffer_get_float32(message, 10000.0, &ind);
+			ind += 8; // Skip the next 8 bytes
+			values.tachometer 		= buffer_get_int32(message, &ind);
+			values.tachometerAbs 		= buffer_get_int32(message, &ind);
+			return true;
+
+		break;
+
+		default:
+			return false;
+		break;
 	}
 
 }
@@ -228,7 +231,7 @@ bool VescUartGetValue(bldcMeasure& values, int num) {
 	uint8_t command[1] = { COMM_GET_VALUES };
 	uint8_t payload[256];
 	PackSendPayload(command, 1, num);
-	delay(10); //needed, otherwise data is not read
+	delay(1); //needed, otherwise data is not read
 	int lenPayload = ReceiveUartMessage(payload, num);
 	if (lenPayload > 55) {
 		bool read = ProcessReadPacket(payload, values, lenPayload); //returns true if sucessful

@@ -19,7 +19,9 @@
 #include <U8g2lib.h>
 
 /** Initiate VescUart class */
-VescUart UART;
+//VescUart UART;		// SolidGeeks Version
+
+bldcMeasure vescValues;	// RolingGeckos Version
 
 // Fuer Display
 //#define OLED_RESET 4 // not used / nicht genutzt bei diesem Display
@@ -85,13 +87,15 @@ unsigned long milliseconds;
 
 uint16_t notPedalingCounter;
 
+int test = 0;
+
+
 uint8_t resetFlagRegister = 0;
 
 struct batteryDataStruct
 {
 	uint8_t numberOfCells = 9;
 	float voltageArdu = 0.0;
-	//float voltageVesc = 0.0;
 	float avgCellVolt = 0.0;
 	uint8_t SOC = 0;
 	int16_t batteryPower = 0.0;
@@ -104,7 +108,6 @@ struct undervoltageRegStruct
 	//float reg_out=0;
 	float reg_out_int=0;
 	float reg_out_filtered=0;
-	//float reg_diff;
 };
 
 struct speedRegStruct
@@ -125,8 +128,6 @@ speedRegStruct speedReg;
 
 batteryDataStruct batteryData;
 undervoltageRegStruct undervoltageReg;
-
-//int temp_int;
 
 uint8_t displayCounter;
 
@@ -159,8 +160,8 @@ struct tasterStruct
 	uint32_t lastEvent = 0;
 };
 
-tasterStruct taster1;
-tasterStruct taster2;
+//tasterStruct taster1;
+//tasterStruct taster2;
 
 //tasterStruct tasterUp;
 //tasterStruct tasterDown;
@@ -192,7 +193,6 @@ tasterStruct taster2;
 	struct pasStruct
 	{
 		//Variables for PAS
-		//const uint8_t pas_allowed_fails = 1;
 		const bool doubleHall = DOUBLE_HALL;
 		uint16_t pasTimeHigh = 0;
 		uint16_t pasTimeLow = 0;
@@ -232,8 +232,6 @@ void pas_ISR()
 	pasData.last_pas_event = millis();
 
 	pasData.pasTimeGesamt = pasData.pasTimeLow+pasData.pasTimeHigh;
-	//TODO: Diese Division könnte man eigentlich vermeiden
-	//pasData.cadence = CONV_PAS_TIME_TO_CADENCE/(pasData.pasTimeLow+pasData.pasTimeHigh);
 
 	if(pasData.doubleHall == false)
 	{	// wenn man keinen Double-Hall-Sensor hat muss man den PAS-Faktor mit einbeziehen
@@ -426,7 +424,7 @@ void calculateSOC()
 	if(vesc_connected)
 	{
 		//batteryData.avgCellVolt = batteryData.voltageVesc/batteryData.numberOfCells;
-		batteryData.avgCellVolt = UART.data.inpVoltage/batteryData.numberOfCells;
+		batteryData.avgCellVolt = vescValues.inpVoltage/batteryData.numberOfCells;
 	}
 	else
 	{
@@ -546,7 +544,7 @@ void refreshu8x8Display()
 		  u8x8.setCursor(0,2);
 		  if(vesc_connected)
 		  {
-			  u8x8.print((int)UART.data.inpVoltage);
+			  u8x8.print((int)vescValues.inpVoltage);
 		  }
 		  else
 		  {
@@ -558,7 +556,7 @@ void refreshu8x8Display()
 		  u8x8.print(batteryData.SOC);
 		  u8x8.print(F("% "));
 
-		  u8x8.print((int)(UART.data.ampHours*1000));
+		  u8x8.print((int)(vescValues.ampHours*1000));
 		  u8x8.print(F("mAh"));
 
 		  }
@@ -590,6 +588,12 @@ void refreshu8x8Display()
 		  u8x8.clearLine(7);
 		  u8x8.setCursor(0,6);
 		  u8x8.print(vescConnectionErrors);
+
+		  if(vesc_connected)
+		  {
+			  u8x8.print(F("  VESC "));
+		  }
+		  u8x8.print(test);
 
 		  /*u8x8.print((int)speedReg.velocity);
 		  u8x8.print(F("km/h "));
@@ -683,6 +687,8 @@ void setup()
 
     //u8x8.setFont(u8x8_font_chroma48medium8_r);
     u8x8.setFont(u8x8_font_8x13_1x2_r);
+    u8x8.home();
+    u8x8.print(F("Hallo!"));
 #endif
 
 
@@ -709,12 +715,13 @@ void setup()
 
 	// aus VESC-ARduino Beispiel, ich vermute zum abwarten bis serielle Schnittstelle bereit
 	while (!Serial) {;}
-	UART.setSerialPort(&Serial);
+	//UART.setSerialPort(&Serial);
 
 	//3mal Verbindung zum VESC checken
 	for(int i = 0; i<3; i++)
 	{
-		if(UART.getVescValues())
+		//if(UART.getVescValues())
+		if(VescUartGetValue(vescValues))
 		{
 			//LED einschalten und weiter zur loop
 			vesc_connected = true;
@@ -727,11 +734,14 @@ void setup()
 	if(vesc_connected == false)
 	{
 		Serial.end();
+	    u8x8.home();
+	    u8x8.print(F("Schade"));
+	    delay(1000);
 	}
 	else
 	{	//VESC ist dran
 		// Zellspannung einmal abfragen fuer 6s-9s-Erkennung:
-		if (UART.data.inpVoltage > BAT6S9S_GRENZE)
+		if (vescValues.inpVoltage > BAT6S9S_GRENZE)
 		{
 			batteryData.numberOfCells = 9;
 			undervoltageThreshold = UNDERVOLTAGE_9S;
@@ -782,14 +792,8 @@ void loop() {
 	  lastSlowLoop = millis();
 
 	  	  //LED blinken lassen zum Anzeigen ob noch aktiv
-		if(digitalRead(LED)==HIGH)
-		{
-			digitalWrite(LED, LOW);
-		}
-		else
-		{
-			digitalWrite(LED, HIGH);
-		}
+		bool temp = digitalRead(LED);
+		digitalWrite(LED, !temp);
 
 		interpretInputs();
 
@@ -799,9 +803,9 @@ void loop() {
 		  //3mal versuchen auszulesen
 		//for(int i = 0; i<3; i++)
 		//{
-			if(UART.getVescValues())
+			if(VescUartGetValue(vescValues))
 			{
-				batteryData.batteryPower = UART.data.inpVoltage * UART.data.avgInputCurrent;
+				batteryData.batteryPower = vescValues.inpVoltage * vescValues.avgInputCurrent;
 
 				//wenn die Eingangsspannung unter die Grenze sinkt -> Unterstützungsstufe zurückschalten
 				/*if(batteryData.voltageVesc < undervoltageThreshold)
@@ -813,7 +817,7 @@ void loop() {
 				}*/
 
 				 //Geschwindigkeit berechnen aus ausgelesener RPM
-				speedReg.velocity = UART.data.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
+				speedReg.velocity = vescValues.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
 				//speedReg.rpm = UART.data.rpm;
 
 				// Geschwindigkeitsregler
@@ -837,7 +841,7 @@ void loop() {
 
 
 				  //Unterspannungs-regler:
-				  regOut = UART.data.inpVoltage - undervoltageThreshold;
+				  regOut = vescValues.inpVoltage - undervoltageThreshold;
 				  //undervoltageReg.reg_out = undervoltageReg.reg_diff;
 				  if(regOut > 1.0)
 				  {
@@ -851,12 +855,9 @@ void loop() {
 				  // Filterung des Reglerausgangs
 				  undervoltageReg.reg_out_int = undervoltageReg.reg_out_int + regOut - undervoltageReg.reg_out_filtered;
 				  undervoltageReg.reg_out_filtered = undervoltageReg.reg_out_int / 20;
-
-				//break;
 			}
-			//wenns beim dritten Mal nicht geklappt hat stimmt wohl was nicht
-			//else if(i>=2)
-				  else
+
+			else
 			{
 				vescConnectionErrors++;
 				//vesc_connected = false;
@@ -872,7 +873,7 @@ void loop() {
 
 			// aus VESC-ARduino Beispiel, ich vermute zum abwarten bis serielle Schnittstelle bereit
 			while (!Serial) {;}
-			UART.setSerialPort(&Serial);
+			//UART.setSerialPort(&Serial);
 		}
 
 		  if(pasData.pedaling == true)
@@ -913,7 +914,7 @@ void loop() {
 			  notPedalingCounter++;
 		  }
 
-		  UART.setCurrent(throttleControl.current_next);
+		  VescUartSetCurrent(throttleControl.current_next);
 		  throttleControl.current_now = throttleControl.current_next;
 
 	  }
@@ -930,11 +931,9 @@ void loop() {
 		ultraslowTimerFlag = false;
 
 #ifdef DISPLAY_CONNECTED
-		//noInterrupts();
-		detachInterrupt(digitalPinToInterrupt(INPUT_PAS));
+		//detachInterrupt(digitalPinToInterrupt(INPUT_PAS));
 		refreshu8x8Display();
 		attachInterrupt(digitalPinToInterrupt(INPUT_PAS), pas_ISR, CHANGE);
-		//interrupts();
 #endif
 
 		lastUltraSlowLoop = millis();
