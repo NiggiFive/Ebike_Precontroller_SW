@@ -336,7 +336,7 @@ void VescUartSetNunchukValues(remotePackage& data) {
 	VescUartSetNunchukValues(data, 0);
 }
 
-void SerialPrint(uint8_t* data, int len) {
+/*void SerialPrint(uint8_t* data, int len) {
 
 	//	DEBUGSERIAL.print("Data to display: "); DEBUGSERIAL.println(sizeof(data));
 
@@ -346,10 +346,11 @@ void SerialPrint(uint8_t* data, int len) {
 		DEBUGSERIAL.print(" ");
 	}
 	DEBUGSERIAL.println("");
-}
+}*/
 
 
-void SerialPrint(const bldcMeasure& values) {
+/*void SerialPrint(const bldcMeasure& values) {
+
 	DEBUGSERIAL.print("avgMotorCurrent: "); DEBUGSERIAL.println(values.avgMotorCurrent);
 	DEBUGSERIAL.print("avgInputCurrent: "); DEBUGSERIAL.println(values.avgInputCurrent);
 	DEBUGSERIAL.print("dutyCycleNow: "); DEBUGSERIAL.println(values.dutyCycleNow);
@@ -359,4 +360,4 @@ void SerialPrint(const bldcMeasure& values) {
 	DEBUGSERIAL.print("ampHoursCharges: "); DEBUGSERIAL.println(values.ampHoursCharged);
 	DEBUGSERIAL.print("tachometer: "); DEBUGSERIAL.println(values.tachometer);
 	DEBUGSERIAL.print("tachometerAbs: "); DEBUGSERIAL.println(values.tachometerAbs);
-}
+}*/

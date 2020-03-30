@@ -1,7 +1,3 @@
-/* letzte Aenderung: 22.01.2020: Pedal-Erkennung funktioniert
- * 21.01.2020: Display-Ansteuerung Funktioniert
-   V1.00: Neue Version fuer neue Hardware
-	nur Pin 2 und 3 koennen flanken-interrupts */
 
 #include "config.h"
 #include "Arduino.h"
@@ -28,7 +24,6 @@ bldcMeasure vescValues;	// RolingGeckos Version
 //Adafruit_SSD1306 display(OLED_RESET);
 
 
-//#define DISPLAY_CONNECTED		//uncomment if no Display Connected
 // Einstellung, ob VESC oder KU63 angeschlossen
 //#define CTRLMODE VESC
 //#define VESC 1
@@ -69,7 +64,8 @@ bldcMeasure vescValues;	// RolingGeckos Version
 // Entprellzeit für PAS (und evtl. Taster) in ms
 #define ENTPRELLZEIT 5
 
-#define MAX_STROMSTEIGUNG	1.0
+#define MAX_CURRENT_RAMP_POS	1.0
+#define MAX_CURRENT_RAMP_NEG	10.0
 
 //fuer Display
 //#define DRAW_DELAY 118
@@ -86,9 +82,6 @@ uint8_t stufenI [ANZAHL_STUFEN+1] = {0, STUFE1_I, STUFE2_I, STUFE3_I, STUFE4_I};
 unsigned long milliseconds;
 
 uint16_t notPedalingCounter;
-
-int test = 0;
-
 
 uint8_t resetFlagRegister = 0;
 
@@ -129,13 +122,17 @@ speedRegStruct speedReg;
 batteryDataStruct batteryData;
 undervoltageRegStruct undervoltageReg;
 
-uint8_t displayCounter;
+uint8_t displayRowCounter = 0;
+
+//Modi:
+//Battery
+//Motor
+//Debug
+uint8_t displayMode = 0;
 
 uint8_t vescConnectionErrors = 0;
 
 bool vesc_connected = false;
-
-bool headlight_on = true;
 
 bool pipapo = false;
 
@@ -348,15 +345,15 @@ void interpretInputs()
 		}
 		else if (switchRed_edges==2 && switchGreen_edges == 1)
 		{
-			if(headlight_on == true)
+			// Licht an/aus schalten
+			digitalWrite(OUTPUT_LIGHT, !digitalRead(OUTPUT_LIGHT));
+		}
+		else if (switchRed_edges==1 && switchGreen_edges ==1)
+		{
+			displayMode++;
+			if(displayMode >=3)
 			{
-				headlight_on = false;
-				digitalWrite(OUTPUT_LIGHT, LOW);
-			}
-			else
-			{
-				headlight_on = true;
-				digitalWrite(OUTPUT_LIGHT, HIGH);
+				displayMode = 0;
 			}
 		}
 		else
@@ -526,7 +523,150 @@ void setThrottlePWM()
 #ifdef DISPLAY_CONNECTED
 void refreshu8x8Display()
 {
-	  if(displayCounter == 0)
+	switch (displayMode)
+	{
+	case 0:
+		if(displayRowCounter == 0)
+		{
+			  u8x8.home();
+			  u8x8.clearLine(0);
+			  u8x8.clearLine(1);
+			  u8x8.print(F("Battery:"));
+		}
+		else if (displayRowCounter == 1)
+		{
+			  // Zeile 2:
+			  u8x8.clearLine(2);
+			  u8x8.clearLine(3);
+			  u8x8.setCursor(0,2);
+			  if(vesc_connected)
+			  {
+				  u8x8.print((int)vescValues.inpVoltage);
+			  }
+			  else
+			  {
+				  u8x8.print((int)batteryData.voltageArdu);
+			  }
+
+			  u8x8.print(F("V  "));
+
+			  //SOC Ausgeben
+			  u8x8.print(batteryData.SOC);
+			  u8x8.print(F("% "));
+		}
+		else if (displayRowCounter == 2)
+		{
+			  //Zeile 3:
+			  u8x8.clearLine(4);
+			  u8x8.clearLine(5);
+			  u8x8.setCursor(0,4);
+
+			  u8x8.print((int)vescValues.avgInputCurrent);
+			  u8x8.print(F("A  "));
+
+			  u8x8.print((int)(vescValues.ampHours*1000));
+			  u8x8.print(F("mAh"));
+		}
+		else if (displayRowCounter == 3)
+		{
+			  //Zeile 4:
+			  u8x8.clearLine(6);
+			  u8x8.clearLine(7);
+			  u8x8.setCursor(0,6);
+			  u8x8.print(batteryData.batteryPower);
+			  u8x8.print(F("W"));
+		}
+		break;
+
+	case 1:
+		if(displayRowCounter == 0)
+		{
+			  u8x8.home();
+			  u8x8.clearLine(0);
+			  u8x8.clearLine(1);
+			  u8x8.print(F("Motor:"));
+		}
+		else if (displayRowCounter == 1)
+		{
+			  // Zeile 2:
+			  u8x8.clearLine(2);
+			  u8x8.clearLine(3);
+			  u8x8.setCursor(0,2);
+			  //u8x8.print(F("Imot = "));
+			  u8x8.print((int)vescValues.avgMotorCurrent);
+			  u8x8.print(F("A "));
+
+		}
+		else if (displayRowCounter == 2)
+		{
+			  //Zeile 3:
+			  u8x8.clearLine(4);
+			  u8x8.clearLine(5);
+			  u8x8.setCursor(0,4);
+
+			  u8x8.print(vescValues.rpm);
+			  u8x8.print(F(" ERPM"));
+		}
+		else if (displayRowCounter == 3)
+		{
+			  //Zeile 4:
+			  u8x8.clearLine(6);
+			  u8x8.clearLine(7);
+			  u8x8.setCursor(0,6);
+			  u8x8.print((int)speedReg.velocity);
+			  u8x8.print(F(" km/h"));
+		}
+		break;
+
+	case 2:
+		if(displayRowCounter == 0)
+		{
+			  u8x8.home();
+			  u8x8.clearLine(0);
+			  u8x8.clearLine(1);
+			  u8x8.print(F("MCUSR: "));
+			  u8x8.print(resetFlagRegister);
+		}
+		else if (displayRowCounter == 1)
+		{
+			  // Zeile 2:
+			  u8x8.clearLine(2);
+			  u8x8.clearLine(3);
+			  u8x8.setCursor(0,2);
+			  u8x8.print(F("Conn-Errors: "));
+			  u8x8.print(vescConnectionErrors);
+
+		}
+		else if (displayRowCounter == 2)
+		{
+			  //Zeile 3:
+			  u8x8.clearLine(4);
+			  u8x8.clearLine(5);
+			  u8x8.setCursor(0,4);
+
+			  u8x8.print(F("FreeRAM: "));
+			  u8x8.print(freeMemory());
+		}
+		else if (displayRowCounter == 3)
+		{
+			  //Zeile 4:
+			  u8x8.clearLine(6);
+			  u8x8.clearLine(7);
+			  u8x8.setCursor(0,6);
+			  u8x8.print(F("Stufe "));
+			  u8x8.print(throttleControl.aktStufe);
+			  if(vesc_connected)
+			  {
+				  u8x8.print(F("  VESC"));
+			  }
+		}
+		break;
+
+	default: break;
+	}
+
+
+	  /*if(displayRowCounter == 0)
 	  {
 		  u8x8.home();
 		  u8x8.clearLine(0);
@@ -536,7 +676,7 @@ void refreshu8x8Display()
 		  u8x8.print(freeMemory());
 	  }
 
-	  else if (displayCounter == 1)
+	  else if (displayRowCounter == 1)
 	  {
 		  // Zeile 2:
 		  u8x8.clearLine(2);
@@ -561,7 +701,7 @@ void refreshu8x8Display()
 
 		  }
 
-	  else if (displayCounter == 2)
+	  else if (displayRowCounter == 2)
 	  {
 		  //Zeile 3:
 		  u8x8.clearLine(4);
@@ -581,7 +721,7 @@ void refreshu8x8Display()
 		  }
 	  }
 
-	  else if (displayCounter == 3)
+	  else if (displayRowCounter == 3)
 	  {
 		  //Zeile 4:
 		  u8x8.clearLine(6);
@@ -592,8 +732,7 @@ void refreshu8x8Display()
 		  if(vesc_connected)
 		  {
 			  u8x8.print(F("  VESC "));
-		  }
-		  u8x8.print(test);
+		  }*/
 
 		  /*u8x8.print((int)speedReg.velocity);
 		  u8x8.print(F("km/h "));
@@ -621,16 +760,15 @@ void refreshu8x8Display()
 		  }*/
 
 
-	  }
 	  u8x8.display();
-	  if(displayCounter < 3)
+	  if(displayRowCounter < 3)
 	  {
-		  displayCounter++;
+		  displayRowCounter++;
 
 	  }
 	  else
 	  {
-		  displayCounter = 0;
+		  displayRowCounter = 0;
 	  }
 }
 #endif
@@ -639,9 +777,9 @@ void setup()
 {
   // put your setup code here, to run once:
 
-	//resetFlagRegister = MCUSR;
+	resetFlagRegister = MCUSR;
 	 // Clear all MCUSR registers immediately for 'next use'
-	MCUSR = 0;
+	//MCUSR = 0;
 
 	// Pin A4 als Ausgang einstellen (fuer I2C)
 	pinMode(PIN_A4, OUTPUT);
@@ -673,7 +811,6 @@ void setup()
 	pinMode(OUTPUT_LIGHT, OUTPUT);
 	//Licht anschalten
 	digitalWrite(OUTPUT_LIGHT, HIGH);
-	headlight_on = true;
 
 	//LED auf ArduinoNano Pin 13
 	pinMode(LED, OUTPUT);
@@ -685,10 +822,11 @@ void setup()
 #ifdef DISPLAY_CONNECTED
     u8x8.begin();
 
-    //u8x8.setFont(u8x8_font_chroma48medium8_r);
-    u8x8.setFont(u8x8_font_8x13_1x2_r);
+    u8x8.setFont(u8x8_font_courB18_2x3_r);
     u8x8.home();
+    u8x8.setCursor(0,2);
     u8x8.print(F("Hallo!"));
+    u8x8.setFont(u8x8_font_8x13_1x2_r);
 #endif
 
 
@@ -703,18 +841,23 @@ void setup()
 	//attachInterrupt(digitalPinToInterrupt(INPUT_TASTER1), taster_ISR, FALLING);
 
 	//Timer initialisieren auf 1ms (1000us) um zyklisch abzufragen etc:
+	// -> funktioniert nicht, scheint Konflikt mit serieller Schnittstelle zu geben
 	//Timer1.initialize(1000);
 	//Timer1.attachInterrupt(timer1_ISR);
 
 	//Delay bis VESC ready ist:
-	delay(1000);
+	//Da muss man recht lange warten da der neue Bootloader deutlich schneller ist
+	//TODO: evtl. kann man den Delay dann abhängig von der resetquelle machen
+	// siehe auch hier: https://www.arduino.cc/reference/en/language/functions/communication/serial/ifserial/
+	delay(3500);
 
 	// zusammen mit VESC kann man die serielle Schnittstelle nicht mehr nehmen
 	//Serial.begin(9600);
 	Serial.begin(VESC_BAUDRATE);
 
 	// aus VESC-ARduino Beispiel, ich vermute zum abwarten bis serielle Schnittstelle bereit
-	while (!Serial) {;}
+	//-> das hat mit dem neuen Bootloader Probleme gemacht
+	//while (!Serial) {;}
 	//UART.setSerialPort(&Serial);
 
 	//3mal Verbindung zum VESC checken
@@ -734,8 +877,10 @@ void setup()
 	if(vesc_connected == false)
 	{
 		Serial.end();
+		u8x8.clearDisplay();
 	    u8x8.home();
-	    u8x8.print(F("Schade"));
+	    u8x8.println(F("VESC not found"));
+	    u8x8.print(F("PWM-Modus aktiv"));
 	    delay(1000);
 	}
 	else
@@ -761,8 +906,6 @@ void loop() {
 	if(millis() > milliseconds)
 	{
 		milliseconds = millis();
-
-		//ISR_1MS();
 	}
 
 	// PAS-Timeout?
@@ -772,11 +915,9 @@ void loop() {
 		pasData.pas_factor = 0;
 		pasData.pas_factor_filtered = 0;
 	}
-	//pasData.cadence = CONV_PAS_TIME_TO_CADENCE/(pasData.pasTimeLow+pasData.pasTimeHigh);
 
 	// Schnelle Routine -> hier werden nur die Taster ausgelesen
 	if((millis()-lastFastLoop) > FAST_TIMER)
-	//if(fastTimerFlag)
 	{
 		lastFastLoop = millis();
 		fastTimerFlag = false;
@@ -786,7 +927,6 @@ void loop() {
 
 	// langsame Routine
   if((milliseconds - lastSlowLoop) > SLOW_TIMER)
-	//if(slowTimerFlag)
   {
 	  slowTimerFlag = false;
 	  lastSlowLoop = millis();
@@ -800,80 +940,70 @@ void loop() {
 	  if(vesc_connected)
 	  {
 		  uint8_t vescErrorsTemp = vescConnectionErrors;
-		  //3mal versuchen auszulesen
-		//for(int i = 0; i<3; i++)
-		//{
-			if(VescUartGetValue(vescValues))
-			{
-				batteryData.batteryPower = vescValues.inpVoltage * vescValues.avgInputCurrent;
+		if(VescUartGetValue(vescValues))
+		{
+			batteryData.batteryPower = vescValues.inpVoltage * vescValues.avgInputCurrent;
 
-				//wenn die Eingangsspannung unter die Grenze sinkt -> Unterstützungsstufe zurückschalten
-				/*if(batteryData.voltageVesc < undervoltageThreshold)
+			//wenn die Eingangsspannung unter die Grenze sinkt -> Unterstützungsstufe zurückschalten
+			// -> mittlerweile ersetzt durch Constant-Voltage-Discharge-Regler
+			/*if(batteryData.voltageVesc < undervoltageThreshold)
+			{
+				if(throttleControl.aktStufe > 0)
 				{
-					if(throttleControl.aktStufe > 0)
-					{
-						throttleControl.aktStufe--;
-					}
-				}*/
+					throttleControl.aktStufe--;
+				}
+			}*/
 
-				 //Geschwindigkeit berechnen aus ausgelesener RPM
-				speedReg.velocity = vescValues.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
-				//speedReg.rpm = UART.data.rpm;
+			 //Geschwindigkeit berechnen aus ausgelesener RPM
+			speedReg.velocity = vescValues.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
 
-				// Geschwindigkeitsregler
-				//speedReg.vreg_out = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
-				float regOut = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
-				//Regeldifferenz:
-				//speedReg.vreg_out = speedReg.erpm_max - speedReg.rpm;
-				//speedReg.vreg_out = speedReg.vreg_out/(float)((speedReg.erpm_max-speedReg.erpm_grenz));
-				  if(regOut >1.0)
-				  {
-					  regOut = 1.0;
-				  }
-				  else if (regOut < 0.0)
-				  {
-					  regOut = 0.0;
-				  }
+			// Geschwindigkeitsregler
+			float regOut = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
 
-				  //PT1-Filterung des Reglerausgangs:
-				  speedReg.vreg_out_int += (regOut - speedReg.vreg_out_filtered);
-				  speedReg.vreg_out_filtered = speedReg.vreg_out_int / 8;
+			  if(regOut >1.0)
+			  {
+				  regOut = 1.0;
+			  }
+			  else if (regOut < 0.0)
+			  {
+				  regOut = 0.0;
+			  }
+
+			  //PT1-Filterung des Reglerausgangs:
+			  speedReg.vreg_out_int += (regOut - speedReg.vreg_out_filtered);
+			  speedReg.vreg_out_filtered = speedReg.vreg_out_int / 8;
 
 
-				  //Unterspannungs-regler:
-				  regOut = vescValues.inpVoltage - undervoltageThreshold;
-				  //undervoltageReg.reg_out = undervoltageReg.reg_diff;
-				  if(regOut > 1.0)
-				  {
-					  regOut = 1.0;
-				  }
-				  else if (regOut < 0.0)
-				  {
-					  regOut = 0.0;
-				  }
+			  //Unterspannungs-regler:
+			  regOut = vescValues.inpVoltage - undervoltageThreshold;
+			  //undervoltageReg.reg_out = undervoltageReg.reg_diff;
+			  if(regOut > 1.0)
+			  {
+				  regOut = 1.0;
+			  }
+			  else if (regOut < 0.0)
+			  {
+				  regOut = 0.0;
+			  }
 
-				  // Filterung des Reglerausgangs
-				  undervoltageReg.reg_out_int = undervoltageReg.reg_out_int + regOut - undervoltageReg.reg_out_filtered;
-				  undervoltageReg.reg_out_filtered = undervoltageReg.reg_out_int / 20;
-			}
+			  // Filterung des Reglerausgangs
+			  undervoltageReg.reg_out_int = undervoltageReg.reg_out_int + regOut - undervoltageReg.reg_out_filtered;
+			  undervoltageReg.reg_out_filtered = undervoltageReg.reg_out_int / 20;
+		}
 
-			else
-			{
-				vescConnectionErrors++;
-				//vesc_connected = false;
-				//Serial.end();
-				//digitalWrite(LED, LOW);
-			}
-		//}
-			// wenn ein Fehler aufgetreten ist bei der Übertragung starte ich einfach die Schnittstelle neu
+		else
+		{
+			vescConnectionErrors++;
+		}
+
+		// wenn ein Fehler aufgetreten ist bei der Übertragung starte ich einfach die Schnittstelle neu
 		if(vescErrorsTemp != vescConnectionErrors)
 		{
 			Serial.end();
 			Serial.begin(VESC_BAUDRATE);
 
-			// aus VESC-ARduino Beispiel, ich vermute zum abwarten bis serielle Schnittstelle bereit
+			// aus VESC-ARduino Beispiel, zum abwarten bis serielle Schnittstelle bereit?
 			while (!Serial) {;}
-			//UART.setSerialPort(&Serial);
 		}
 
 		  if(pasData.pedaling == true)
@@ -896,14 +1026,14 @@ void loop() {
 			 }
 
 			 //Maximale Stromsteigung beachten
-			 else if((throttleControl.current_next - throttleControl.current_now) > MAX_STROMSTEIGUNG )
+			 else if((throttleControl.current_next - throttleControl.current_now) > MAX_CURRENT_RAMP_POS )
 			 {
-				 throttleControl.current_next = throttleControl.current_now + MAX_STROMSTEIGUNG;
+				 throttleControl.current_next = throttleControl.current_now + MAX_CURRENT_RAMP_POS;
 			 }
 			 //Maximale negative Stromsteigung beachten
-			 else if ((throttleControl.current_now - throttleControl.current_next) > MAX_STROMSTEIGUNG)
+			 else if ((throttleControl.current_now - throttleControl.current_next) > MAX_CURRENT_RAMP_NEG)
 			 {
-				 throttleControl.current_next = throttleControl.current_now - 10;
+				 throttleControl.current_next = throttleControl.current_now - MAX_CURRENT_RAMP_NEG;
 			 }
 	  	  }
 

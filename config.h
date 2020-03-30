@@ -10,7 +10,7 @@
 
 #define DISPLAY_CONNECTED
 
-//UART-Geschwindigkeit f�r VESC einstellen:
+//UART-Geschwindigkeit fuer VESC einstellen:
 //#define VESC_BAUDRATE 19200
 //#define VESC_BAUDRATE 28800
 //#define VESC_BAUDRATE 115200
@@ -18,7 +18,7 @@
 
 //Anzahl Polpaare
 #define MOTOR_POLE_PAIRS 	10
-//Uebersetzungsverh�ltnis des Planetengetriebes (falls vorhanden, sonst 1)
+//Uebersetzungsverhaeltnis des Planetengetriebes (falls vorhanden, sonst 1)
 #define MOTOR_GEAR_RATIO 	4.42
 //Radumfang in Metern
 //fuer 28 Zoll (Schwalbe Marathon)
