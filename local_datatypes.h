@@ -3,17 +3,21 @@
 
 // Added by AC to store measured values
 struct bldcMeasure {
-	//7 Values int16_t not read(14 byte)
+	// Values  read:
+	float temp_mos;
+	//float temp_motor;
 	float avgMotorCurrent;
 	float avgInputCurrent;
-	float dutyCycleNow;
+	//float dutyCycleNow;
 	long rpm;
 	float inpVoltage;
 	float ampHours;
-	float ampHoursCharged;
-	//2 values int32_t not read (8 byte)
+	//float ampHoursCharged;
+	float watt_hours;
+	//float watt_hours_charged;
 	long tachometer;
-	long tachometerAbs;
+	//long tachometerAbs;
+	mc_fault_code fault_code;
 };
 //Define remote Package
 

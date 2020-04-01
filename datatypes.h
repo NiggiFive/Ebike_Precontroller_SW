@@ -582,26 +582,26 @@ typedef enum {
 	MOTE_PACKET_PAIRING_INFO
 } MOTE_PACKET;
 
+
 typedef struct {
 	float v_in;
-	float temp_mos1;
-	float temp_mos2;
-	float temp_mos3;
-	float temp_mos4;
-    float temp_mos5;
-    float temp_mos6;
-    float temp_pcb;
-    float current_motor;
-    float current_in;
-    float rpm;
-    float duty_now;
-    float amp_hours;
-    float amp_hours_charged;
-    float watt_hours;
-    float watt_hours_charged;
+	float temp_mos;
+	float temp_motor;
+	float current_motor;
+	float current_in;
+	float id;
+	float iq;
+	float rpm;
+	float duty_now;
+	float amp_hours;
+	float amp_hours_charged;
+	float watt_hours;
+	float watt_hours_charged;
     int tachometer;
     int tachometer_abs;
     mc_fault_code fault_code;
+    float pid_pos;
+    uint8_t vesc_id;
 } mc_values;
 
 typedef enum {

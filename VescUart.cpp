@@ -204,18 +204,25 @@ bool ProcessReadPacket(uint8_t* message, bldcMeasure& values, int len) {
 	switch (packetId){
 		case COMM_GET_VALUES: // Structure defined here: https://github.com/vedderb/bldc/blob/43c3bbaf91f5052a35b75c2ff17b5fe99fad94d1/commands.c#L164
 
-			ind = 4; // Skip the first 4 bytes
+			ind = 0; // Skip the first 4 bytes
+			values.temp_mos 		= buffer_get_float16(message, 10.0, &ind);
+			ind+=2;		// skip 2 bytes of motor-temperature
 			values.avgMotorCurrent 	= buffer_get_float32(message, 100.0, &ind);
 			values.avgInputCurrent 	= buffer_get_float32(message, 100.0, &ind);
 			ind += 8; // Skip the next 8 bytes
-			values.dutyCycleNow 		= buffer_get_float16(message, 1000.0, &ind);
+			ind += 2;	//skip dutycycle
+			//values.dutyCycleNow 	= buffer_get_float16(message, 1000.0, &ind);
 			values.rpm 				= buffer_get_int32(message, &ind);
 			values.inpVoltage 		= buffer_get_float16(message, 10.0, &ind);
-			values.ampHours 			= buffer_get_float32(message, 10000.0, &ind);
-			values.ampHoursCharged 	= buffer_get_float32(message, 10000.0, &ind);
-			ind += 8; // Skip the next 8 bytes
+			values.ampHours 		= buffer_get_float32(message, 10000.0, &ind);
+			ind += 4;	// skip ampHoursCharged
+			//values.ampHoursCharged 	= buffer_get_float32(message, 10000.0, &ind);
+			values.watt_hours		= buffer_get_float32(message, 10000.0, &ind);
+			ind += 4; // Skip the next 4 bytes (wattHoursCharged)
+			ind += 4;	// skip 8 bytes (tachometerAbs not needed)
 			values.tachometer 		= buffer_get_int32(message, &ind);
-			values.tachometerAbs 		= buffer_get_int32(message, &ind);
+			//values.tachometerAbs 		= buffer_get_int32(message, &ind);
+			values.fault_code = (mc_fault_code)message[ind++];
 			return true;
 
 		break;
@@ -226,6 +233,7 @@ bool ProcessReadPacket(uint8_t* message, bldcMeasure& values, int len) {
 	}
 
 }
+
 
 bool VescUartGetValue(bldcMeasure& values, int num) {
 	uint8_t command[1] = { COMM_GET_VALUES };
