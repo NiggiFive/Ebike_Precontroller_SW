@@ -32,14 +32,15 @@
 #define PAS_TIMEOUT CONV_PAS_TIME_TO_CADENCE/MIN_CADENCE
 
 #define PAS_FACTOR_MIN	110		// Wichtig um Vorwaerts und Rueckwaerts-Pedalieren unterscheiden zu k�nnen bei non-double-Hall-Sensoren
+#define PAS_FACTOR_MAX	70
 
 // Zeit (in 100ms-Schritten), nach der beim aufh�ren zu Pedalieren die Utnerstuetzungsstufe wieder auf den default-Wert zur�ckgesetzt wird
-#define TIME_TO_RESET_AFTER_PEDAL_STOP	100
+#define TIME_TO_RESET_AFTER_PEDAL_STOP	300
 
 // Zeitfenster fuer Tastereingabe in ms
 #define TASTER_TIME_WINDOW 500
 
-#define ANZAHL_STUFEN	4
+#define ANZAHL_STUFEN	5
 
 // Geschwindigkeits-Stufen Ausgangsspannungen fuer Ku-63
 #define STUFE5_V 3.25

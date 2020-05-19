@@ -5,9 +5,6 @@
 #include "MemoryFree.h"
 
 #include <avr/wdt.h>
-//#include <EEPROM.h>
-
-
 
 //  Spannungsteiler Spannungssensierung:
 // 	Nominalwerte:
@@ -37,7 +34,7 @@
 //100ms Timer
 #define SLOW_TIMER 100
 
-#define ULTRA_SLOW_TIMER 250
+#define ULTRA_SLOW_TIMER 1000
 
 // Entprellzeit für PAS (und evtl. Taster) in ms
 #define ENTPRELLZEIT 5
@@ -183,7 +180,11 @@ void pas_ISR()
 		pasData.pas_factor_int +=(pasData.pas_factor-pasData.pas_factor_filtered);
 		pasData.pas_factor_filtered = pasData.pas_factor_int >>1;
 
-		if(pasData.pasTimeGesamt <= PAS_TIMEOUT && pasData.pas_factor_filtered > PAS_FACTOR_MIN)
+		/*if(pasData.pasTimeGesamt <= PAS_TIMEOUT && pasData.pas_factor_filtered > PAS_FACTOR_MIN)
+		{
+			pasData.pedaling = true;
+		}*/
+		if(pasData.pasTimeGesamt <= PAS_TIMEOUT && pasData.pas_factor_filtered < PAS_FACTOR_MAX)
 		{
 			pasData.pedaling = true;
 		}
@@ -215,9 +216,6 @@ void pas_ISR()
 
 void checkTaster()
 {
-	//taster1_state = digitalRead(INPUT_TASTER1);
-	//taster2_state = digitalRead(INPUT_TASTER2);
-
 	// UP/DOWN Schalter auswerten:
 	uint8_t temp = digitalRead(INPUT_3W_SW_RED);
 	if(temp == 0 && switchRed_state == 1)		//fallende Flanke erkannt
@@ -296,6 +294,15 @@ void checkTaster()
 		taster1.edge_detected = false;
 	}
 	taster1.state = temp;
+
+	if(millis()-taster1.lastEvent > TASTER_TIME_WINDOW && taster1.edges>0)
+	{
+		taster1.ready = true;
+	}
+	else
+	{
+		taster1.ready = false;
+	}
 }
 
 void interpretInputs()
@@ -366,12 +373,13 @@ void interpretInputs()
 		else if (taster1.edges == 3)
 		{
 		  //Unterstuetzung hochschalten
-		  throttleControl.aktStufe = throttleControl.aktStufe+switchRed_edges;
+		  throttleControl.aktStufe++;
 		  if(throttleControl.aktStufe>ANZAHL_STUFEN)
 		  {
 			  throttleControl.aktStufe = ANZAHL_STUFEN;
 		  }
 		}
+		taster1.edges = 0;
 	}
 }
 
@@ -382,6 +390,26 @@ void readBattVoltArdu()
   batteryData.voltageArdu = (float)((temp*REFVOLT/1024.0)*(RUPPER+RLOWER)/RLOWER);
 }
 
+void writeSerialData()
+{
+	//Serial.print("Vbat: ");
+	//Serial.print(batteryData.voltageArdu);
+	//Serial.print("V  SOC: ");
+	//Serial.print(batteryData.SOC);
+	//Serial.println("%");
+
+	Serial.print("PAS-Faktor: ");
+	Serial.println(pasData.pas_factor);
+
+	Serial.print("pedaling: ");
+	Serial.println(pasData.pedaling);
+
+	Serial.print("Stufe: ");
+	Serial.print(throttleControl.aktStufe);
+
+	Serial.print("  Throttle ON: ");
+	Serial.println(throttleControl.throttleON);
+}
 
 void calculateSOC()
 {
@@ -526,7 +554,7 @@ void setup()
 	// falling-edge interrupt fuer Taster konfigurieren	-> TODO
 	//attachInterrupt(digitalPinToInterrupt(INPUT_TASTER1), taster_ISR, FALLING);
 
-	//Serial.begin(9600);
+	Serial.begin(SERIAL_MONITOR_BAUDRATE);
 
 	// Zellspannung einmal abfragen fuer 6s-9s-Erkennung:
     readBattVoltArdu();
@@ -589,7 +617,7 @@ void loop() {
 
 	  interpretInputs();
 
-	  if(pasData.pedaling == true)
+	  if(pasData.pedaling == true && throttleControl.throttleON == true)
 	  {
 		  notPedalingCounter = 0;
 		  switch (throttleControl.aktStufe)
@@ -604,6 +632,8 @@ void loop() {
 		  break;
 		  case 4: throttleControl.throttleVoltage = STUFE4_V;
 		  break;
+		  case 5: throttleControl.throttleVoltage = STUFE5_V;
+		  break;
 		  default: throttleControl.throttleVoltage = STUFE0;
 		  break;
 		  }
@@ -611,6 +641,7 @@ void loop() {
 	  else		// not pedaling
 	  {
 		  throttleControl.throttleVoltage = 0.0;
+		  notPedalingCounter++;
 	  }
 	  undervoltageRegulator();
 	  throttleControl.throttleVoltage = throttleControl.throttleVoltage * undervoltageReg.reg_out_filtered;
@@ -623,17 +654,19 @@ void loop() {
 	{
 		lastUltraSlowLoop = millis();
 		calculateSOC();
+		writeSerialData();
 
 		// bei bedarf Unterstuetzung auf default zurückstellen nach gewisser Zeit
-		/*if(notPedalingCounter >= TIME_TO_RESET_AFTER_PEDAL_STOP && throttleControl.aktStufe > DEFAULT_STUFE)
+		if(notPedalingCounter >= TIME_TO_RESET_AFTER_PEDAL_STOP && throttleControl.aktStufe > DEFAULT_STUFE)
 		{
 			throttleControl.aktStufe = DEFAULT_STUFE;
-		}*/
+		}
 	}
 
 	if(freeMemory() < minFreeRAM)
 	{
 		minFreeRAM = freeMemory();
+
 	}
 	//wdt_reset();
 }
