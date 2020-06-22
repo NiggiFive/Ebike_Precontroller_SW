@@ -10,6 +10,12 @@
 
 #define DISPLAY_CONNECTED
 #define DISPLAY_MODI	6
+//Display_Modi:
+//Battery
+//Motor
+//Debug
+//ODO
+//OFF
 
 #define SPEED_LIMIT_BY_VESC
 
@@ -102,5 +108,15 @@
 #define SCHIEBEHILFE STUFE1_V
 
 #define DEFAULT_STUFE 1
+
+//  Spannungsteiler Spannungssensierung:
+// 	Nominalwerte:
+//  Rupper=47k
+//  Rlower=4k7
+
+// bei HW-Version 1 waren es 22k und 2k2! -> Achtung
+#define RUPPER 47.0
+#define RLOWER 4.7
+#define REFVOLT 5.00
 
 #endif /* CONFIG_H_ */
