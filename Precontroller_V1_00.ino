@@ -789,8 +789,53 @@ void refreshu8x8Display()
 		}
 		break;
 
-	case 4: u8x8.clearDisplay();
+	case 4:
+		if(displayRowCounter == 0)
+		{
+			  u8x8.home();
+			  u8x8.clearLine(0);
+			  u8x8.clearLine(1);
+			  u8x8.print(F("PAS-Faktor: "));
+			  u8x8.print(pasData.pas_factor);
+		}
+
+		else if (displayRowCounter == 1)
+		{
+			  // Zeile 2:
+			  u8x8.clearLine(2);
+			  u8x8.clearLine(3);
+			  u8x8.setCursor(0,2);
+			  if(pasData.pedaling)
+			  {
+				  u8x8.print(F("Pedaling"));
+			  }
+			  else
+			  {
+				  u8x8.print(F("not Pedaling"));
+			  }
+		}
+
+		else if (displayRowCounter == 2)
+		{
+			  //Zeile 3:
+			  u8x8.clearLine(4);
+			  u8x8.clearLine(5);
+			  u8x8.setCursor(0,4);
+
+		}
+		else if (displayRowCounter == 3)
+		{
+			  //Zeile 4:
+			  u8x8.clearLine(6);
+			  u8x8.clearLine(7);
+			  u8x8.setCursor(0,6);
+		}
+		break;
+
+	case 5: u8x8.clearDisplay();
 	break;
+
+
 
 	default: break;
 	}
@@ -935,7 +980,17 @@ void setup()
 	//fuer Display:
 	//Display-Versorgung einschalten:
 	pinMode(OUTPUT_DISPLAY_SUPPLY, OUTPUT);
-	digitalWrite(OUTPUT_DISPLAY_SUPPLY, LOW);
+	if (HW_VERSION == 2)
+	{
+		// Display Versorgung hängt direkt an IO von Ardu
+		digitalWrite(OUTPUT_DISPLAY_SUPPLY, HIGH);
+	}
+	else if (HW_VERSION == 1)
+	{
+		// Display Versorgung wird mit PNP Highside geschaltet
+		digitalWrite(OUTPUT_DISPLAY_SUPPLY, LOW);
+	}
+
 
 	//Licht-Ausgang konfigurieren
 	pinMode(OUTPUT_LIGHT, OUTPUT);
@@ -994,7 +1049,12 @@ void setup()
 
 	// Zellspannung einmal abfragen fuer 6s-9s-Erkennung:
     readBattVoltArdu();
-	if (batteryData.voltageArdu > BAT6S9S_GRENZE)
+    if (batteryData.voltageArdu > BAT9S12S_GRENZE)
+    {
+    	batteryData.numberOfCells = 12;
+    	batteryData.undervoltageThreshold = UNDERVOLTAGE_12S;
+    }
+    else if (batteryData.voltageArdu > BAT6S9S_GRENZE)
 	{
 		batteryData.numberOfCells = 9;
 		batteryData.undervoltageThreshold = UNDERVOLTAGE_9S;
@@ -1113,7 +1173,8 @@ void loop() {
 			 //Geschwindigkeit berechnen aus ausgelesener RPM
 			speedReg.velocity = vescValues.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
 
-			// Geschwindigkeitsregler
+			// Geschwindigkeitsregler (nur nötig wenn
+#ifndef SPEED_LIMIT_BY_VESC
 			float regOut = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
 
 			  if(regOut >1.0)
@@ -1128,6 +1189,9 @@ void loop() {
 			  //PT1-Filterung des Reglerausgangs:
 			  speedReg.vreg_out_int += (regOut - speedReg.vreg_out_filtered);
 			  speedReg.vreg_out_filtered = speedReg.vreg_out_int / 8;
+#else
+			  speedReg.vreg_out_filtered = 1.0;
+#endif
 
 
 			  //Unterspannungs-regler:

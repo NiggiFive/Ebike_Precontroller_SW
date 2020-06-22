@@ -9,13 +9,19 @@
 #define CONFIG_H_
 
 #define DISPLAY_CONNECTED
-#define DISPLAY_MODI	5
+#define DISPLAY_MODI	6
+
+#define SPEED_LIMIT_BY_VESC
 
 //UART-Geschwindigkeit fuer VESC einstellen:
 //#define VESC_BAUDRATE 19200
 //#define VESC_BAUDRATE 28800
 //#define VESC_BAUDRATE 115200
 #define VESC_BAUDRATE 	57600
+
+// 1 für erste Version der Platine
+// 2 für zweite Version
+#define HW_VERSION 	2
 
 //Anzahl Polpaare
 #define MOTOR_POLE_PAIRS 	10
@@ -44,17 +50,19 @@
 //28 Zoll : ERPM_max = 9230
 
 // Undervoltage-Grenzen fuer Batterie:
+#define UNDERVOLTAGE_12S 3.3*12.0
 #define UNDERVOLTAGE_10S 3.25*10.0
 #define UNDERVOLTAGE_9S 3.3*9.0
 #define UNDERVOLTAGE_6S 3.3*6.0
 #define UNDERVOLTAGE_3S	3.3*3.0
 
-// Grenze zur Erkennung 6s vs. 9s Batterie
+// Grenze zur Erkennung 6s vs. 9s vs. 12s Batterie
+#define BAT9S12S_GRENZE 42.0
 #define BAT6S9S_GRENZE 26.0
 #define BAT3S6S_GRENZE 15.0
 
 // Werte fuer Pedalsensierung:
-#define DOUBLE_HALL	0			// 1 fï¿½r Double-Hall-Sensor, 0 fï¿½r non-double-Hall
+#define DOUBLE_HALL	1			// 1 fï¿½r Double-Hall-Sensor, 0 fï¿½r non-double-Hall
 #define PAS_MAGNETS 10			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12
 #define MIN_CADENCE	25			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
 
