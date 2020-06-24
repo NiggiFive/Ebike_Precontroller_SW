@@ -19,6 +19,8 @@
 
 #define SPEED_LIMIT_BY_VESC
 
+#define UNDERVOLTAGE_LIMIT_BY_VESC
+
 //UART-Geschwindigkeit fuer VESC einstellen:
 //#define VESC_BAUDRATE 19200
 //#define VESC_BAUDRATE 28800

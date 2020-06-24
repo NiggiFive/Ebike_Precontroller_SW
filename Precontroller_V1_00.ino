@@ -1097,7 +1097,9 @@ void loop() {
 			  }
 
 			  // Unterspannungsgrenze
+#ifndef UNDERVOLTAGE_LIMIT_BY_VESC
 			  throttleControl.current_next = throttleControl.current_next * undervoltageReg.reg_out_filtered;
+#endif
 
 			 if(throttleControl.current_next <= 0.0)
 			 {
