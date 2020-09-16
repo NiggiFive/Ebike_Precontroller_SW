@@ -578,7 +578,7 @@ void refreshu8x8Display()
 			  u8x8.home();
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
-			  u8x8.print(F("Motor:"));
+			  u8x8.print(F("Motor: "));
 		}
 		else if (displayRowCounter == 1)
 		{
@@ -588,7 +588,10 @@ void refreshu8x8Display()
 			  u8x8.setCursor(0,2);
 			  //u8x8.print(F("Imot = "));
 			  u8x8.print((int)vescValues.avgMotorCurrent);
-			  u8x8.print(F(" A "));
+			  u8x8.print(F(" A  "));
+
+			  u8x8.print((int)vescValues.temp_mos);
+			  u8x8.print(F(" degC"));
 
 		}
 		else if (displayRowCounter == 2)
@@ -601,7 +604,7 @@ void refreshu8x8Display()
 			  u8x8.print(vescValues.rpm);
 			  u8x8.print(F(" ERPM "));
 
-			  u8x8.print(vescValues.tachometer);
+			  //u8x8.print(vescValues.tachometer);
 			  //u8x8.print(F("Steps"));
 		}
 		else if (displayRowCounter == 3)
