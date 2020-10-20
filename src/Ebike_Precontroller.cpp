@@ -37,7 +37,7 @@ bldcMeasure vescValues;	// RolingGeckos Version
 
 #define ULTRA_SLOW_TIMER 250
 
-// Entprellzeit für PAS (und evtl. Taster) in ms
+// Entprellzeit fï¿½r PAS (und evtl. Taster) in ms
 #define ENTPRELLZEIT 5
 
 #define MAX_CURRENT_RAMP_POS	1.0
@@ -217,9 +217,9 @@ void pas_ISR()
 	}
 	else
 	{
-		// mit Double-Hall-Sensor muss man nur die Cadence überprüfen
+		// mit Double-Hall-Sensor muss man nur die Cadence ï¿½berprï¿½fen
 		//if(pasData.cadence>=MIN_CADENCE)
-		//statt der kadenz kann man auch die PAS-Time überprüfen, dadurch spart man sich die Berechnung der Kadenz (division)
+		//statt der kadenz kann man auch die PAS-Time ï¿½berprï¿½fen, dadurch spart man sich die Berechnung der Kadenz (division)
 		if(pasData.pasTimeGesamt <= PAS_TIMEOUT)
 		{
 			pasData.pedaling = true;
@@ -283,7 +283,7 @@ void checkTaster()
 		switchRed_edge_detected = true;
 	}
 
-	//keine Flanke erkannt aber noch auf low-level -> flanke bestätigen (Entprellung)
+	//keine Flanke erkannt aber noch auf low-level -> flanke bestï¿½tigen (Entprellung)
 	else if (temp == 0 && switchRed_state == 0)
 	{
 		if(switchRed_edge_detected == true && switchRedGreen_ready == false)
@@ -307,7 +307,7 @@ void checkTaster()
 		switchGreen_edge_detected = true;
 	}
 
-	//keine Flanke erkannt aber noch auf low-level -> flanke bestätigen (Entprellung)
+	//keine Flanke erkannt aber noch auf low-level -> flanke bestï¿½tigen (Entprellung)
 	else if (temp == 0 && switchGreen_state == 0)
 	{
 		if(switchGreen_edge_detected == true && switchRedGreen_ready == false)
@@ -390,7 +390,7 @@ void interpretInputs()
 // Batteriespannung auslesen und umrechnen
 void readBattVoltArdu()
 {
-  int temp = analogRead(INPUT_BATSENSE);	// analogRead dauert ca. 100µs
+  int temp = analogRead(INPUT_BATSENSE);	// analogRead dauert ca. 100ï¿½s
   batteryData.voltageArdu = (float)((temp*REFVOLT/1024.0)*(RUPPER+RLOWER)/RLOWER);
 }
 
@@ -424,6 +424,20 @@ void calculateSOC()
 		3,732	20%
 		3,685	10%
 	 */
+
+	/* Wertetabelle fÃ¼r 18650-Zellen (Samsung INR18650-35E)
+	4,1	100%
+	4,02	90%
+	3,94	80%
+	3,86	70%
+	3,78	60%
+	3,7		50%
+	3,62	40%
+	3,54	30%
+	3,46	20%
+	3,38	10%
+	3,3		0% */
+
 	if(vesc_connected)
 	{
 		batteryData.avgCellVolt = vescValues.inpVoltage/batteryData.numberOfCells;
@@ -643,10 +657,10 @@ void refreshu8x8Display()
 				      //Watchdog Reset
 					 u8x8.println(F("Watchdog"));
 				 }*/
-			  //Bit 0 – PORF: Power-on Reset Flag
-			  //Bit 1 – EXTRF: External Reset Flag
-			  //Bit 2 – BORF: Brown-out Reset Flag
-			  //Bit 3 – WDRF: Watchdog System Reset Flag
+			  //Bit 0 ï¿½ PORF: Power-on Reset Flag
+			  //Bit 1 ï¿½ EXTRF: External Reset Flag
+			  //Bit 2 ï¿½ BORF: Brown-out Reset Flag
+			  //Bit 3 ï¿½ WDRF: Watchdog System Reset Flag
 
 			  u8x8.print(F("MCUSR: "));
 			  u8x8.print(resetFlagRegister);
@@ -860,7 +874,7 @@ void setup()
 	pinMode(OUTPUT_DISPLAY_SUPPLY, OUTPUT);
 	if (HW_VERSION == 2)
 	{
-		// Display Versorgung hängt direkt an IO von Ardu
+		// Display Versorgung hï¿½ngt direkt an IO von Ardu
 		digitalWrite(OUTPUT_DISPLAY_SUPPLY, HIGH);
 	}
 	else if (HW_VERSION == 1)
@@ -917,7 +931,7 @@ void setup()
 
 	//Delay bis VESC ready ist:
 	//Da muss man recht lange warten da der neue Bootloader deutlich schneller ist
-	//TODO: evtl. kann man den Delay dann abhängig von der resetquelle machen
+	//TODO: evtl. kann man den Delay dann abhï¿½ngig von der resetquelle machen
 	// siehe auch hier: https://www.arduino.cc/reference/en/language/functions/communication/serial/ifserial/
 	delay(2500);
 
@@ -927,11 +941,16 @@ void setup()
 
 	// Zellspannung einmal abfragen fuer 6s-9s-Erkennung:
     readBattVoltArdu();
-    if (batteryData.voltageArdu > BAT9S12S_GRENZE)
+    if (batteryData.voltageArdu > BAT10S12S_GRENZE)
     {
     	batteryData.numberOfCells = 12;
     	batteryData.undervoltageThreshold = UNDERVOLTAGE_12S;
     }
+	else if (batteryData.voltageArdu >BAT9S10S_GRENZE)
+	{
+		batteryData.numberOfCells = 10;
+		batteryData.undervoltageThreshold = UNDERVOLTAGE_10S;
+	}
     else if (batteryData.voltageArdu > BAT6S9S_GRENZE)
 	{
 		batteryData.numberOfCells = 9;
@@ -1032,7 +1051,7 @@ void loop() {
 			 //Geschwindigkeit berechnen aus ausgelesener RPM
 			speedReg.velocity = vescValues.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
 
-			// Geschwindigkeitsregler (nur nötig wenn
+			// Geschwindigkeitsregler (nur nï¿½tig wenn
 #ifndef SPEED_LIMIT_BY_VESC
 			float regOut = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
 
@@ -1062,7 +1081,7 @@ void loop() {
 			vescConnectionErrors++;
 		}
 
-		// wenn ein Fehler aufgetreten ist bei der Übertragung starte ich einfach die Schnittstelle neu
+		// wenn ein Fehler aufgetreten ist bei der ï¿½bertragung starte ich einfach die Schnittstelle neu
 		if(vescErrorsTemp != vescConnectionErrors)
 		{
 			Serial.end();
@@ -1184,7 +1203,7 @@ void loop() {
 		lastUltraSlowLoop = millis();
 		calculateSOC();
 
-		// bei bedarf Unterstuetzung auf default zurückstellen nach gewisser Zeit
+		// bei bedarf Unterstuetzung auf default zurï¿½ckstellen nach gewisser Zeit
 		/*if(notPedalingCounter >= TIME_TO_RESET_AFTER_PEDAL_STOP && throttleControl.aktStufe > DEFAULT_STUFE)
 		{
 			throttleControl.aktStufe = DEFAULT_STUFE;
