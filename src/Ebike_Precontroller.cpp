@@ -17,8 +17,16 @@ bldcMeasure vescValues;	// RolingGeckos Version
 #define INPUT_PAS 3
 #define INPUT_TASTER1 2
 #define INPUT_TASTER2 4		// -> Taster2 ueblicherweise fuer Licht?
-#define INPUT_3W_SW_RED 6
-#define INPUT_3W_SW_GREEN 7
+
+#ifdef REVERSE_BUTTONS
+	#define INPUT_3W_SW_RED 6
+	#define INPUT_3W_SW_GREEN 7
+#elif
+	#define INPUT_3W_SW_RED 7
+	#define INPUT_3W_SW_GREEN 6
+#endif
+
+
 #define OUTPUT_THROTTLE 5
 #define OUTPUT_DISPLAY_SUPPLY 8
 #define OUTPUT_LIGHT 9
@@ -397,7 +405,7 @@ void readBattVoltArdu()
 
 void calculateSOC()
 {
-	/*Wertetabelle fuer SOC Berechnung
+	/*Wertetabelle fuer SOC Berechnung Lipos
 	 * Spannung		Prozent
 	 * >4.08V		100
 	 * >4.00		90
@@ -412,7 +420,7 @@ void calculateSOC()
 	 * <3.68		0
 	 */
 
-	/*Wertetabelle neu:
+	/*Wertetabelle neu (aktuell genutzt):
 	 * 	4,181	100,00%
 		4,084	90%
 		3,988	80%
@@ -446,49 +454,99 @@ void calculateSOC()
 	{
 		batteryData.avgCellVolt = batteryData.voltageArdu/batteryData.numberOfCells;
 	}
-	if(batteryData.avgCellVolt > 4.18)
+	if(batteryData.numberOfCells == 10)
 	{
-		batteryData.SOC = 100;
-	}
-	else if (batteryData.avgCellVolt >4.08)
-	{
-		batteryData.SOC = 90;
-	}
-	else if (batteryData.avgCellVolt >3.98)
-	{
-		batteryData.SOC = 80;
-	}
-	else if (batteryData.avgCellVolt >3.93)
-	{
-		batteryData.SOC = 70;
-	}
-	else if (batteryData.avgCellVolt >3.86)
-	{
-		batteryData.SOC = 60;
-	}
-	else if (batteryData.avgCellVolt >3.81)
-	{
-		batteryData.SOC = 50;
-	}
-	else if (batteryData.avgCellVolt >3.78)
-	{
-		batteryData.SOC = 40;
-	}
-	else if (batteryData.avgCellVolt >3.76)
-	{
-		batteryData.SOC = 30;
-	}
-	else if (batteryData.avgCellVolt >3.73)
-	{
-		batteryData.SOC = 20;
-	}
-	else if (batteryData.avgCellVolt >3.68)
-	{
-		batteryData.SOC = 10;
+		if(batteryData.avgCellVolt > 4.10)
+		{
+			batteryData.SOC = 100;
+		}
+		else if (batteryData.avgCellVolt >4.02)
+		{
+			batteryData.SOC = 9;
+		}
+		else if (batteryData.avgCellVolt >3.94)
+		{
+			batteryData.SOC = 80;
+		}
+		else if (batteryData.avgCellVolt >3.86)
+		{
+			batteryData.SOC = 70;
+		}
+		else if (batteryData.avgCellVolt >3.78)
+		{
+			batteryData.SOC = 60;
+		}
+		else if (batteryData.avgCellVolt >3.70)
+		{
+			batteryData.SOC = 50;
+		}
+		else if (batteryData.avgCellVolt >3.62)
+		{
+			batteryData.SOC = 40;
+		}
+		else if (batteryData.avgCellVolt >3.54)
+		{
+			batteryData.SOC = 30;
+		}
+		else if (batteryData.avgCellVolt >3.46)
+		{
+			batteryData.SOC = 20;
+		}
+		else if (batteryData.avgCellVolt >3.38)
+		{
+			batteryData.SOC = 10;
+		}
+		else
+		{
+			batteryData.SOC = 0;
+		}
 	}
 	else
 	{
-		batteryData.SOC = 0;
+		if(batteryData.avgCellVolt > 4.18)
+		{
+			batteryData.SOC = 100;
+		}
+		else if (batteryData.avgCellVolt >4.08)
+		{
+			batteryData.SOC = 90;
+		}
+		else if (batteryData.avgCellVolt >3.98)
+		{
+			batteryData.SOC = 80;
+		}
+		else if (batteryData.avgCellVolt >3.93)
+		{
+			batteryData.SOC = 70;
+		}
+		else if (batteryData.avgCellVolt >3.86)
+		{
+			batteryData.SOC = 60;
+		}
+		else if (batteryData.avgCellVolt >3.81)
+		{
+			batteryData.SOC = 50;
+		}
+		else if (batteryData.avgCellVolt >3.78)
+		{
+			batteryData.SOC = 40;
+		}
+		else if (batteryData.avgCellVolt >3.76)
+		{
+			batteryData.SOC = 30;
+		}
+		else if (batteryData.avgCellVolt >3.73)
+		{
+			batteryData.SOC = 20;
+		}
+		else if (batteryData.avgCellVolt >3.68)
+		{
+			batteryData.SOC = 10;
+		}
+		else
+		{
+			batteryData.SOC = 0;
+		}
 	}
 }
 
@@ -1046,30 +1104,31 @@ void loop() {
 		  uint8_t vescErrorsTemp = vescConnectionErrors;
 		if(VescUartGetValue(vescValues))
 		{
+			// TODO: possible to read out power directly from vesc?
 			batteryData.batteryPower = vescValues.inpVoltage * vescValues.avgInputCurrent;
 
 			 //Geschwindigkeit berechnen aus ausgelesener RPM
 			speedReg.velocity = vescValues.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
 
-			// Geschwindigkeitsregler (nur n�tig wenn
-#ifndef SPEED_LIMIT_BY_VESC
-			float regOut = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
+			// Speed-Limiting/Control (nur necessary if VESC has no speed-limit)
+			#ifndef SPEED_LIMIT_BY_VESC
+				float regOut = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
 
-			  if(regOut >1.0)
-			  {
-				  regOut = 1.0;
-			  }
-			  else if (regOut < 0.0)
-			  {
-				  regOut = 0.0;
-			  }
+				if(regOut >1.0)
+				{
+					regOut = 1.0;
+				}
+				else if (regOut < 0.0)
+				{
+					regOut = 0.0;
+				}
 
-			  //PT1-Filterung des Reglerausgangs:
-			  speedReg.vreg_out_int += (regOut - speedReg.vreg_out_filtered);
-			  speedReg.vreg_out_filtered = speedReg.vreg_out_int / 8;
-#else
+				//PT1-Filterung des Reglerausgangs:
+				speedReg.vreg_out_int += (regOut - speedReg.vreg_out_filtered);
+				speedReg.vreg_out_filtered = speedReg.vreg_out_int / 8;
+			#else
 			  speedReg.vreg_out_filtered = 1.0;
-#endif
+			#endif
 
 
 			  //Unterspannungs-regler:
@@ -1094,42 +1153,66 @@ void loop() {
 		  if(pasData.pedaling == true)
 		  {
 			  notPedalingCounter = 0;
-			  switch (throttleControl.aktStufe)
-			  {
-			  case 0: throttleControl.current_next = 0.0;
-			  break;
-			  case 1: throttleControl.current_next = STUFE1_I;
-			  break;
-			  case 2: throttleControl.current_next = STUFE2_I;
-			  break;
-			  case 3: throttleControl.current_next = STUFE3_I;
-			  break;
-			  case 4: throttleControl.current_next = STUFE4_I;
-			  break;
-			  default: throttleControl.current_next = 0.0;
-			  break;
 
-			  }
-			  //throttleControl.current_next = (float)stufenI[throttleControl.aktStufe];
+			if (CTRL_MODE == TORQUE_CTRL)
+			{
+				switch (throttleControl.aktStufe)
+				{
+					case 0: throttleControl.current_next = 0.0;
+					break;
+					case 1: throttleControl.current_next = STUFE1_I;
+					break;
+					case 2: throttleControl.current_next = STUFE2_I;
+					break;
+					case 3: throttleControl.current_next = STUFE3_I;
+					break;
+					case 4: throttleControl.current_next = STUFE4_I;
+					break;
+					default: throttleControl.current_next = 0.0;
+					break;
+				}
+			}
+			else if (CTRL_MODE == POWER_CTRL)
+			{
+				switch(throttleControl.aktStufe)
+				{
+					case 0: throttleControl.current_next = 0.0;
+					break;
+					case 1: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE1_P/vescValues.rpm;
+					break;
+					case 2: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE2_P/vescValues.rpm;
+					break;
+					case 3: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE3_P/vescValues.rpm;
+					break;
+					case 4: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE4_P/vescValues.rpm;
+					break;
+				}
+			}
 
 			//Geschwindigkeitsgrenze:
-			  if(pipapo == false)
-			  {
-				  throttleControl.current_next = throttleControl.current_next*speedReg.vreg_out_filtered;
-			  }
+			if(pipapo == false)
+			{
+				throttleControl.current_next = throttleControl.current_next*speedReg.vreg_out_filtered;
+			}
 
 			  // Unterspannungsgrenze
 #ifndef UNDERVOLTAGE_LIMIT_BY_VESC
 			  throttleControl.current_next = throttleControl.current_next * undervoltageReg.reg_out_filtered;
 #endif
 
-			 if(throttleControl.current_next <= 0.0)
+			// prevent negative current
+			 if(throttleControl.current_next < 0.0)
 			 {
 				 throttleControl.current_next = 0.0;
 			 }
+			 // upper abs-current-limit:
+			 if(throttleControl.current_next > ABS_MAX_CURRENT)
+			 {
+				 throttleControl.current_next = ABS_MAX_CURRENT;
+			 }
 
 			 //Maximale Stromsteigung beachten
-			 else if((throttleControl.current_next - throttleControl.current_now) > MAX_CURRENT_RAMP_POS )
+			 if((throttleControl.current_next - throttleControl.current_now) > MAX_CURRENT_RAMP_POS )
 			 {
 				 throttleControl.current_next = throttleControl.current_now + MAX_CURRENT_RAMP_POS;
 			 }

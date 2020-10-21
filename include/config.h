@@ -17,9 +17,17 @@
 //ODO
 //OFF
 
-#define SPEED_LIMIT_BY_VESC
+//#define SPEED_LIMIT_BY_VESC
 
-#define UNDERVOLTAGE_LIMIT_BY_VESC
+//#define UNDERVOLTAGE_LIMIT_BY_VESC
+
+#define TORQUE_CTRL     1     //Current-Control (=fixed Torque-Steps)
+#define POWER_CTRL      2     // Power-Control     (= fixed Power-Steps, torque descreases with speed)
+// 3: Voltage-Control (only recommended for cheap-china-controllers )
+#define CTRL_MODE   POWER_CTRL
+
+// Reverse Up/Down-Buttons
+#define REVERSE_BUTTONS
 
 //UART-Geschwindigkeit fuer VESC einstellen:
 //#define VESC_BAUDRATE 19200
@@ -27,15 +35,25 @@
 //#define VESC_BAUDRATE 115200
 #define VESC_BAUDRATE 	57600
 
-// 1 f�r erste Version der Platine
-// 2 f�r zweite Version
-#define HW_VERSION 	2
+// 1 for first Version
+// 2 for 2nd version
+#define HW_VERSION 	1
 
+// Motor Data
 //Anzahl Polpaare
 #define MOTOR_POLE_PAIRS 	10
 #define MOTOR_POLES			20
 //Uebersetzungsverhaeltnis des Planetengetriebes (falls vorhanden, sonst 1)
 #define MOTOR_GEAR_RATIO 	4.42
+#define MOTOR_FLUX_LINKAGE  0.01276     //Voltseconds^
+
+// Assume linear PSM with Ld=Lq
+#define TORQUE_PER_AMP              1.5*MOTOR_FLUX_LINKAGE      // Caution: "Electrical Torque" because Pole-Pairs are missing in formula!
+
+#define AMPS_PER_WATTS_AND_ERPM     60/(3.14*TORQUE_PER_AMP)
+
+#define ABS_MAX_CURRENT             35.0
+
 //Radumfang in Metern
 //fuer 28 Zoll (Schwalbe Marathon)
 //#define RADUMFANG 			2.155
@@ -96,6 +114,14 @@
 #define STUFE3_I 20
 #define STUFE2_I 12
 #define STUFE1_I 6 		// 4A war ziemlich wenig
+
+// Power-Modes for VESC:
+#define STUFE4_P 500
+#define STUFE3_P 350
+#define STUFE2_P 200
+#define STUFE1_P 100
+
+
 
 // Geschwindigkeits-Stufen Ausgangsspannungen fuer Ku-63
 //#define STUFE5_V 3.75
