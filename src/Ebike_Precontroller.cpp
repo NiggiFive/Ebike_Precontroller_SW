@@ -88,9 +88,9 @@ struct speedRegStruct
 
 struct odoStruct
 {
-	float distanceTrip;
-	uint16_t distanceOverall;
-	uint8_t minutesTrip;
+	float kmTrip;
+	uint16_t kmOverall;
+	uint16_t minutesTrip;
 	uint16_t minutesOverall;
 	float wattHoursOverall;
 	float ampHoursOverall;
@@ -247,8 +247,8 @@ void pas_ISR()
 void getODO()
 {
 	uint8_t temp = 0;
-	EEPROM.get(temp, odometry.distanceOverall);
-	temp += sizeof(odometry.distanceOverall);
+	EEPROM.get(temp, odometry.kmOverall);
+	temp += sizeof(odometry.kmOverall);
 	EEPROM.get(temp, odometry.minutesOverall);
 	temp+= sizeof(odometry.minutesOverall);
 	EEPROM.get(temp, odometry.wattHoursOverall);
@@ -260,8 +260,8 @@ void getODO()
 void writeODO()
 {
 	int temp = 0;
-	EEPROM.put(temp, odometry.distanceOverall + (uint16_t)odometry.distanceTrip);
-	temp += sizeof(odometry.distanceOverall);
+	EEPROM.put(temp, odometry.kmOverall + (uint16_t)odometry.kmTrip);
+	temp += sizeof(odometry.kmOverall);
 	EEPROM.put(temp, odometry.minutesOverall + odometry.minutesTrip);
 	temp+= sizeof(odometry.minutesOverall);
 	EEPROM.put(temp, odometry.wattHoursOverall + vescValues.watt_hours);
@@ -462,7 +462,7 @@ void calculateSOC()
 		}
 		else if (batteryData.avgCellVolt >4.02)
 		{
-			batteryData.SOC = 9;
+			batteryData.SOC = 90;
 		}
 		else if (batteryData.avgCellVolt >3.94)
 		{
@@ -688,7 +688,7 @@ void refreshu8x8Display()
 			  u8x8.print((int)speedReg.velocity);
 			  u8x8.print(F(" km/h "));
 
-			  u8x8.print(odometry.distanceTrip);
+			  u8x8.print(odometry.kmTrip);
 			  u8x8.print(F(" km"));
 		}
 		break;
@@ -759,15 +759,74 @@ void refreshu8x8Display()
 			  }
 		}
 		break;
-
 	case 3:
 		if(displayRowCounter == 0)
 		{
 			  u8x8.home();
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
+			  u8x8.print(F("Trip: "));
+			  u8x8.print(odometry.kmTrip);
+			  u8x8.print(F(" km "));
+		}
+
+		else if (displayRowCounter == 1)
+		{
+			  // Zeile 2:
+			  u8x8.clearLine(2);
+			  u8x8.clearLine(3);
+			  u8x8.setCursor(0,2);
+			  uint16_t temp_time = odometry.minutesTrip/60;
+			  temp_time = temp_time % 24;
+			  u8x8.print(temp_time);
+			  u8x8.print(F("h "));
+			  temp_time = (odometry.minutesTrip) % (60);
+			  if(temp_time < 10)
+			  {
+				  u8x8.print(0);
+			  }
+			  u8x8.print(temp_time);
+			  u8x8.print(F("m "));
+		}
+
+		else if (displayRowCounter == 2)
+		{
+			  //Zeile 3:
+			  u8x8.clearLine(4);
+			  u8x8.clearLine(5);
+			  u8x8.setCursor(0,4);
+			  float temp = vescValues.watt_hours;
+			  if(temp <= 100.0)
+			  {
+				  u8x8.print(temp);
+				  u8x8.print(F(" Wh "));
+			  }
+			  else
+			  {
+				  u8x8.print(temp/1000);
+				  u8x8.print(F(" kWh "));
+			  }
+
+		}
+		else if (displayRowCounter == 3)
+		{
+			  //Zeile 4:
+			  u8x8.clearLine(6);
+			  u8x8.clearLine(7);
+			  u8x8.setCursor(0,6);
+			  u8x8.print(vescValues.ampHours);
+			  u8x8.print(F(" Ah"));
+		}
+		break;
+
+	case 4:
+		if(displayRowCounter == 0)
+		{
+			  u8x8.home();
+			  u8x8.clearLine(0);
+			  u8x8.clearLine(1);
 			  u8x8.print(F("ODO: "));
-			  u8x8.print(odometry.distanceOverall + (uint16_t)odometry.distanceTrip);
+			  u8x8.print(odometry.kmOverall + (uint16_t)odometry.kmTrip);
 			  u8x8.print(F(" km "));
 		}
 
@@ -837,7 +896,7 @@ void refreshu8x8Display()
 		}
 		break;
 
-	case 4:
+	case 5:
 		if(displayRowCounter == 0)
 		{
 			  u8x8.home();
@@ -880,7 +939,7 @@ void refreshu8x8Display()
 		}
 		break;
 
-	case 5: u8x8.clearDisplay();
+	case 6: u8x8.clearDisplay();
 	break;
 
 	default: break;
@@ -956,7 +1015,7 @@ void setup()
 	getODO();
 
 	// Tageskilometer auf 0 Stellen
-	odometry.distanceTrip = 0;
+	odometry.kmTrip = 0;
 	odometry.minutesTrip = 0;
 
 #ifdef DISPLAY_CONNECTED
@@ -1272,9 +1331,9 @@ void loop() {
 		// siehe auch in mcpwm_foc.c aus bldc project von Benjamin Vedder:
 		// * The tachometer value in motor steps. The number of motor revolutions will
 		// * be this number divided by (3 * MOTOR_POLE_NUMBER).
-		odometry.distanceTrip = vescValues.tachometer/(3* MOTOR_POLES * MOTOR_GEAR_RATIO);
-		odometry.distanceTrip = odometry.distanceTrip*RADUMFANG;
-		odometry.distanceTrip = odometry.distanceTrip/1000;
+		odometry.kmTrip = vescValues.tachometer/(3* MOTOR_POLES * MOTOR_GEAR_RATIO);
+		odometry.kmTrip = odometry.kmTrip*RADUMFANG;
+		odometry.kmTrip = odometry.kmTrip/1000;
 
 		odometry.minutesTrip = millis()/60000;
 

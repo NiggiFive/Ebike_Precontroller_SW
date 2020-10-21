@@ -9,7 +9,7 @@
 #define CONFIG_H_
 
 #define DISPLAY_CONNECTED
-#define DISPLAY_MODI	6
+#define DISPLAY_MODI	7
 //Display_Modi:
 //Battery
 //Motor
@@ -89,7 +89,7 @@
 #define BAT3S6S_GRENZE 15.0
 
 // Werte fuer Pedalsensierung:
-#define DOUBLE_HALL	1			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
+#define DOUBLE_HALL	0			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
 #define PAS_MAGNETS 10			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12
 #define MIN_CADENCE	25			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
 
