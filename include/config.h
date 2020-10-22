@@ -9,13 +9,7 @@
 #define CONFIG_H_
 
 #define DISPLAY_CONNECTED
-#define DISPLAY_MODI	7
-//Display_Modi:
-//Battery
-//Motor
-//Debug
-//ODO
-//OFF
+#define DISPLAY_MODI	6
 
 //#define SPEED_LIMIT_BY_VESC
 
@@ -37,7 +31,7 @@
 
 // 1 for first Version
 // 2 for 2nd version
-#define HW_VERSION 	1
+#define HW_VERSION 	2
 
 // Motor Data
 //Anzahl Polpaare
@@ -52,7 +46,7 @@
 
 #define AMPS_PER_WATTS_AND_ERPM     60/(3.14*TORQUE_PER_AMP)
 
-#define ABS_MAX_CURRENT             35.0
+#define ABS_MAX_CURRENT             30.0
 
 //Radumfang in Metern
 //fuer 28 Zoll (Schwalbe Marathon)
@@ -122,7 +116,6 @@
 #define STUFE1_P 100
 
 
-
 // Geschwindigkeits-Stufen Ausgangsspannungen fuer Ku-63
 //#define STUFE5_V 3.75
 //#define STUFE4_V 3.25
@@ -143,9 +136,20 @@
 //  Rupper=47k
 //  Rlower=4k7
 
-// bei HW-Version 1 waren es 22k und 2k2! -> Achtung
-#define RUPPER 47.0
-#define RLOWER 4.7
+// bei HW-Version 1 waren es 22k und 2k2! 
+#if HW_VERSION == 1
+    #define RUPPER_BATSENSE 22.0
+    #define RLOWER_BATSENSE 2.2
+
+#elif HW_VERSION == 2 
+    #define RUPPER_BATSENSE 47.0
+    #define RLOWER_BATSENSE 4.7
+#endif
+
 #define REFVOLT 5.00
+
+// Spannungsteiler zur sensierung der Arduino-Versorgungsspannung
+#define RUPPER_VARDU     22.0
+#define RLOWER_VARDU    12.0
 
 #endif /* CONFIG_H_ */

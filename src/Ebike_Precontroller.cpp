@@ -30,7 +30,10 @@ bldcMeasure vescValues;	// RolingGeckos Version
 #define OUTPUT_THROTTLE 5
 #define OUTPUT_DISPLAY_SUPPLY 8
 #define OUTPUT_LIGHT 9
-#define INPUT_BATSENSE 6
+#define INPUT_BATSENSE PIN_A6
+#define INPUT_VARDUSENSE PIN_A7
+
+#define INPUT_THROTTLE PIN_A0
 
 // Pin-Nummer der LED auf Arduino Nano
 #define LED 13
@@ -60,16 +63,24 @@ unsigned long milliseconds;
 
 uint16_t notPedalingCounter;
 
+long temprpm = 0;
+
 uint8_t resetFlagRegister = 0;
 
 struct batteryDataStruct
 {
 	uint8_t numberOfCells = 9;
-	float voltageArdu = 0.0;
+	float vBatArdu = 0.0;
 	float avgCellVolt = 0.0;
 	uint8_t SOC = 0;
 	int16_t batteryPower = 0.0;
 	float undervoltageThreshold;
+};
+
+struct controllerDataStruct
+{
+	float vInArdu = 0.0;
+	uint8_t controlMode = POWER_CTRL;
 };
 
 
@@ -89,7 +100,7 @@ struct speedRegStruct
 struct odoStruct
 {
 	float kmTrip;
-	uint16_t kmOverall;
+	float kmOverall;
 	uint16_t minutesTrip;
 	uint16_t minutesOverall;
 	float wattHoursOverall;
@@ -98,6 +109,7 @@ struct odoStruct
 
 speedRegStruct speedReg;
 batteryDataStruct batteryData;
+controllerDataStruct controllerData;
 undervoltageRegStruct undervoltageReg;
 odoStruct odometry;
 
@@ -260,7 +272,7 @@ void getODO()
 void writeODO()
 {
 	int temp = 0;
-	EEPROM.put(temp, odometry.kmOverall + (uint16_t)odometry.kmTrip);
+	EEPROM.put(temp, odometry.kmOverall + odometry.kmTrip);
 	temp += sizeof(odometry.kmOverall);
 	EEPROM.put(temp, odometry.minutesOverall + odometry.minutesTrip);
 	temp+= sizeof(odometry.minutesOverall);
@@ -350,11 +362,26 @@ void interpretInputs()
 		{
 			pipapo = !pipapo;
 		}
+
+		// Switch between Power and Torque-Control-Mode
+		else if (switchRed_edges ==1 && switchGreen_edges == 3)
+		{
+			if (controllerData.controlMode == POWER_CTRL)
+			{
+				controllerData.controlMode = TORQUE_CTRL;
+			}
+			else
+			{
+				controllerData.controlMode = POWER_CTRL;
+			}
+		}
 		else if (switchRed_edges==1 && switchGreen_edges == 2)
 		{
-			// Licht an/aus schalten
+			// Toggle Headlight
 			digitalWrite(OUTPUT_LIGHT, !digitalRead(OUTPUT_LIGHT));
 		}
+
+		// Change Display-Mode
 		else if (switchRed_edges==1 && switchGreen_edges ==1)
 		{
 			displayMode++;
@@ -363,6 +390,8 @@ void interpretInputs()
 				displayMode = 0;
 			}
 		}
+
+		// Reset ODO-Data
 		else if (switchRed_edges==1 && switchGreen_edges ==9)
 		{
 			resetODO();
@@ -396,10 +425,12 @@ void interpretInputs()
 }
 
 // Batteriespannung auslesen und umrechnen
-void readBattVoltArdu()
+void readVoltagesArdu()
 {
   int temp = analogRead(INPUT_BATSENSE);	// analogRead dauert ca. 100�s
-  batteryData.voltageArdu = (float)((temp*REFVOLT/1024.0)*(RUPPER+RLOWER)/RLOWER);
+  batteryData.vBatArdu = (float)((temp*REFVOLT/1024.0)*(RUPPER_BATSENSE+RLOWER_BATSENSE)/RLOWER_BATSENSE);
+  temp = analogRead(INPUT_VARDUSENSE);
+  controllerData.vInArdu = (float)((temp*REFVOLT/1024.0)*(RUPPER_VARDU+RLOWER_VARDU)/RLOWER_VARDU);
 }
 
 
@@ -452,7 +483,7 @@ void calculateSOC()
 	}
 	else
 	{
-		batteryData.avgCellVolt = batteryData.voltageArdu/batteryData.numberOfCells;
+		batteryData.avgCellVolt = batteryData.vBatArdu/batteryData.numberOfCells;
 	}
 	if(batteryData.numberOfCells == 10)
 	{
@@ -564,7 +595,7 @@ void undervoltageRegulator()
 	}
 	else
 	{
-		regOut = batteryData.voltageArdu - batteryData.undervoltageThreshold;
+		regOut = batteryData.vBatArdu - batteryData.undervoltageThreshold;
 	}
 
 	if(regOut > 1.0)
@@ -587,15 +618,27 @@ void refreshu8x8Display()
 {
 	switch (displayMode)
 	{
+	// Home-Display
 	case 0:
 		if(displayRowCounter == 0)
 		{
 			  u8x8.home();
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
-			  u8x8.print(F("Battery ("));
+			  if(vesc_connected)
+			  {
+				  u8x8.print((int)vescValues.inpVoltage);
+			  }
+			  else
+			  {
+				  u8x8.print((int)batteryData.vBatArdu);
+			  }
+			  u8x8.print(F(" V  "));
 			  u8x8.print(batteryData.numberOfCells);
-			  u8x8.print(F("s):"));
+			  u8x8.print(F("s "));
+			  //SOC Ausgeben
+			  u8x8.print(batteryData.SOC);
+			  u8x8.print(F(" % "));
 		}
 		else if (displayRowCounter == 1)
 		{
@@ -603,20 +646,9 @@ void refreshu8x8Display()
 			  u8x8.clearLine(2);
 			  u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
-			  if(vesc_connected)
-			  {
-				  u8x8.print((int)vescValues.inpVoltage);
-			  }
-			  else
-			  {
-				  u8x8.print((int)batteryData.voltageArdu);
-			  }
-
-			  u8x8.print(F(" V  "));
-
-			  //SOC Ausgeben
-			  u8x8.print(batteryData.SOC);
-			  u8x8.print(F(" % "));
+			  u8x8.print(F("   "));
+			  u8x8.print((int)speedReg.velocity);
+			  u8x8.print(F(" km/h "));
 		}
 		else if (displayRowCounter == 2)
 		{
@@ -624,12 +656,10 @@ void refreshu8x8Display()
 			  u8x8.clearLine(4);
 			  u8x8.clearLine(5);
 			  u8x8.setCursor(0,4);
-
-			  u8x8.print((int)vescValues.avgInputCurrent);
-			  u8x8.print(F(" A  "));
-
-			  u8x8.print((int)(vescValues.ampHours*1000));
-			  u8x8.print(F(" mAh"));
+			  u8x8.print(batteryData.batteryPower);
+			  u8x8.print(F(" W   "));
+			  u8x8.print(controllerData.vInArdu);
+			  u8x8.print(F("V"));
 		}
 		else if (displayRowCounter == 3)
 		{
@@ -637,10 +667,16 @@ void refreshu8x8Display()
 			  u8x8.clearLine(6);
 			  u8x8.clearLine(7);
 			  u8x8.setCursor(0,6);
-			  u8x8.print(batteryData.batteryPower);
-			  u8x8.print(F(" W  "));
-			  u8x8.print((int)vescValues.watt_hours);
-			  u8x8.print(F(" Wh"));
+			  u8x8.print(F("Stufe "));
+			  u8x8.print(throttleControl.aktStufe);
+			  if(pasData.pedaling)
+			  {
+				  u8x8.print(F("   P"));
+			  }
+			  else
+			  {
+				  u8x8.print(F("      "));
+			  }
 		}
 		break;
 
@@ -650,7 +686,12 @@ void refreshu8x8Display()
 			  u8x8.home();
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
-			  u8x8.print(F("Motor: "));
+			  if(vesc_connected == true)
+			  {
+			  	u8x8.print(F("VESC: "));
+				u8x8.print((int)vescValues.temp_mos);
+			    u8x8.print(F(" deg"));
+			  }
 		}
 		else if (displayRowCounter == 1)
 		{
@@ -658,13 +699,9 @@ void refreshu8x8Display()
 			  u8x8.clearLine(2);
 			  u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
-			  //u8x8.print(F("Imot = "));
+			  u8x8.print(F("Imot = "));
 			  u8x8.print((int)vescValues.avgMotorCurrent);
-			  u8x8.print(F(" A  "));
-
-			  u8x8.print((int)vescValues.temp_mos);
-			  u8x8.print(F(" degC"));
-
+			  u8x8.print(F(" A "));
 		}
 		else if (displayRowCounter == 2)
 		{
@@ -672,12 +709,11 @@ void refreshu8x8Display()
 			  u8x8.clearLine(4);
 			  u8x8.clearLine(5);
 			  u8x8.setCursor(0,4);
+			  u8x8.print(F("Ibat = "));
+			  u8x8.print((int)vescValues.avgInputCurrent);
+			  u8x8.print(F(" A"));
 
-			  u8x8.print(vescValues.rpm);
-			  u8x8.print(F(" ERPM "));
 
-			  //u8x8.print(vescValues.tachometer);
-			  //u8x8.print(F("Steps"));
 		}
 		else if (displayRowCounter == 3)
 		{
@@ -685,11 +721,12 @@ void refreshu8x8Display()
 			  u8x8.clearLine(6);
 			  u8x8.clearLine(7);
 			  u8x8.setCursor(0,6);
-			  u8x8.print((int)speedReg.velocity);
-			  u8x8.print(F(" km/h "));
-
-			  u8x8.print(odometry.kmTrip);
-			  u8x8.print(F(" km"));
+//			  u8x8.print(vescValues.rpm);
+//			  u8x8.print(F(" ERPM "));
+			  u8x8.print(batteryData.batteryPower);
+			  u8x8.print(F(" W  "));
+//			  u8x8.print(controllerData.vInArdu);
+//			  u8x8.print(F("V"));
 		}
 		break;
 
@@ -699,29 +736,32 @@ void refreshu8x8Display()
 			  u8x8.home();
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
-			  u8x8.print(F("Reset: "));
-			  /*if (resetFlagRegister & _BV(EXTRF))
+			  //u8x8.print(F("RST: "));
+			  if (resetFlagRegister & _BV(EXTRF))
 				{
 				     // Reset button or otherwise some software reset
-				     u8x8.println(F("Button"));
+				     u8x8.print(F("EXT "));
 				 }
-				if (resetFlagRegister & (_BV(BORF) | _BV(PORF)))
+			   if (resetFlagRegister & (_BV(BORF)))
+			   {
+				   u8x8.print(F("BOR "));
+			   }
+				if (resetFlagRegister &_BV(PORF))
 				{
 				      // Brownout or Power On
-				      u8x8.println(F("PowerON or Brownout"));
+				      u8x8.println(F("POR "));
 				 }
 				 if (resetFlagRegister & _BV(WDRF))
 				 {
 				      //Watchdog Reset
-					 u8x8.println(F("Watchdog"));
-				 }*/
+					 u8x8.println(F("WD"));
+				 }
 			  //Bit 0 � PORF: Power-on Reset Flag
 			  //Bit 1 � EXTRF: External Reset Flag
 			  //Bit 2 � BORF: Brown-out Reset Flag
 			  //Bit 3 � WDRF: Watchdog System Reset Flag
 
-			  u8x8.print(F("MCUSR: "));
-			  u8x8.print(resetFlagRegister);
+			  //u8x8.print(resetFlagRegister);
 		}
 
 		else if (displayRowCounter == 1)
@@ -730,7 +770,7 @@ void refreshu8x8Display()
 			  u8x8.clearLine(2);
 			  u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
-			  u8x8.print(F("Conn-Errors: "));
+			  u8x8.print(F("Con-Errs: "));
 			  u8x8.print(vescConnectionErrors);
 
 		}
@@ -751,14 +791,16 @@ void refreshu8x8Display()
 			  u8x8.clearLine(6);
 			  u8x8.clearLine(7);
 			  u8x8.setCursor(0,6);
-			  u8x8.print(F("Stufe "));
-			  u8x8.print(throttleControl.aktStufe);
-			  if(vesc_connected)
+			  u8x8.print(F("PAS: "));
+			  u8x8.print(pasData.pas_factor);
+			  if(pasData.pedaling)
 			  {
-				  u8x8.print(F("  VESC"));
+				  u8x8.print(F(" PEDAL"));
 			  }
 		}
 		break;
+
+		// Trip
 	case 3:
 		if(displayRowCounter == 0)
 		{
@@ -819,6 +861,7 @@ void refreshu8x8Display()
 		}
 		break;
 
+	//ODO
 	case 4:
 		if(displayRowCounter == 0)
 		{
@@ -826,7 +869,7 @@ void refreshu8x8Display()
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
 			  u8x8.print(F("ODO: "));
-			  u8x8.print(odometry.kmOverall + (uint16_t)odometry.kmTrip);
+			  u8x8.print(odometry.kmOverall + odometry.kmTrip);
 			  u8x8.print(F(" km "));
 		}
 
@@ -896,50 +939,7 @@ void refreshu8x8Display()
 		}
 		break;
 
-	case 5:
-		if(displayRowCounter == 0)
-		{
-			  u8x8.home();
-			  u8x8.clearLine(0);
-			  u8x8.clearLine(1);
-			  u8x8.print(F("PAS-Faktor: "));
-			  u8x8.print(pasData.pas_factor);
-		}
-
-		else if (displayRowCounter == 1)
-		{
-			  // Zeile 2:
-			  u8x8.clearLine(2);
-			  u8x8.clearLine(3);
-			  u8x8.setCursor(0,2);
-			  if(pasData.pedaling)
-			  {
-				  u8x8.print(F("Pedaling"));
-			  }
-			  else
-			  {
-				  u8x8.print(F("not Pedaling"));
-			  }
-		}
-
-		else if (displayRowCounter == 2)
-		{
-			  //Zeile 3:
-			  u8x8.clearLine(4);
-			  u8x8.clearLine(5);
-			  u8x8.setCursor(0,4);
-
-		}
-		else if (displayRowCounter == 3)
-		{
-			  //Zeile 4:
-			  u8x8.clearLine(6);
-			  u8x8.clearLine(7);
-			  u8x8.setCursor(0,6);
-		}
-		break;
-
-	case 6: u8x8.clearDisplay();
+	case 5: u8x8.clearDisplay();
 	break;
 
 	default: break;
@@ -1057,23 +1057,23 @@ void setup()
 	Serial.begin(VESC_BAUDRATE);
 
 	// Zellspannung einmal abfragen fuer 6s-9s-Erkennung:
-    readBattVoltArdu();
-    if (batteryData.voltageArdu > BAT10S12S_GRENZE)
+    readVoltagesArdu();
+    if (batteryData.vBatArdu > BAT10S12S_GRENZE)
     {
     	batteryData.numberOfCells = 12;
     	batteryData.undervoltageThreshold = UNDERVOLTAGE_12S;
     }
-	else if (batteryData.voltageArdu >BAT9S10S_GRENZE)
+	else if (batteryData.vBatArdu >BAT9S10S_GRENZE)
 	{
 		batteryData.numberOfCells = 10;
 		batteryData.undervoltageThreshold = UNDERVOLTAGE_10S;
 	}
-    else if (batteryData.voltageArdu > BAT6S9S_GRENZE)
+    else if (batteryData.vBatArdu > BAT6S9S_GRENZE)
 	{
 		batteryData.numberOfCells = 9;
 		batteryData.undervoltageThreshold = UNDERVOLTAGE_9S;
 	}
-	else if (batteryData.voltageArdu > BAT3S6S_GRENZE)
+	else if (batteryData.vBatArdu > BAT3S6S_GRENZE)
 	{
 		batteryData.numberOfCells = 6;
 		batteryData.undervoltageThreshold = UNDERVOLTAGE_6S;
@@ -1106,10 +1106,12 @@ void setup()
 	if(vesc_connected == false)
 	{
 		Serial.end();
-		u8x8.clearDisplay();
-	    u8x8.home();
-	    u8x8.println(F("VESC not found"));
-	    u8x8.print(F("PWM-Modus aktiv"));
+		#ifdef DISPLAY_CONNECTED
+			u8x8.clearDisplay();
+			u8x8.home();
+			u8x8.println(F("VESC not found"));
+	    	u8x8.print(F("PWM-Modus aktiv"));
+		#endif
 	    delay(1000);
 	}
 
@@ -1137,10 +1139,10 @@ void loop() {
 	{
 		lastFastLoop = millis();
 		checkTaster();
-		readBattVoltArdu();
+		readVoltagesArdu();
 
 		//wenn Spannung stark abgesunken -> TachoWerte auf EEPROM schreiben
-		if(batteryData.voltageArdu < (0.7 * batteryData.undervoltageThreshold) && batteryData.voltageArdu > 5.0)
+		if(batteryData.vBatArdu < (0.7 * batteryData.undervoltageThreshold) && batteryData.vBatArdu > 5.0)
 		{
 			writeODO();
 			delay(5000);
@@ -1169,7 +1171,7 @@ void loop() {
 			 //Geschwindigkeit berechnen aus ausgelesener RPM
 			speedReg.velocity = vescValues.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
 
-			// Speed-Limiting/Control (nur necessary if VESC has no speed-limit)
+			// Speed-Limiting/Control (only necessary if VESC has no speed-limit)
 			#ifndef SPEED_LIMIT_BY_VESC
 				float regOut = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
 
@@ -1188,8 +1190,6 @@ void loop() {
 			#else
 			  speedReg.vreg_out_filtered = 1.0;
 			#endif
-
-
 			  //Unterspannungs-regler:
 			  undervoltageRegulator();
 		}
@@ -1213,7 +1213,7 @@ void loop() {
 		  {
 			  notPedalingCounter = 0;
 
-			if (CTRL_MODE == TORQUE_CTRL)
+			if (controllerData.controlMode == TORQUE_CTRL)
 			{
 				switch (throttleControl.aktStufe)
 				{
@@ -1231,19 +1231,24 @@ void loop() {
 					break;
 				}
 			}
-			else if (CTRL_MODE == POWER_CTRL)
+			else if (controllerData.controlMode == POWER_CTRL)
 			{
+					temprpm = vescValues.rpm;
+					if(temprpm == 0)
+					{
+						temprpm = 1;
+					}
 				switch(throttleControl.aktStufe)
 				{
 					case 0: throttleControl.current_next = 0.0;
 					break;
-					case 1: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE1_P/vescValues.rpm;
+					case 1: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE1_P/temprpm;
 					break;
-					case 2: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE2_P/vescValues.rpm;
+					case 2: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE2_P/temprpm;
 					break;
-					case 3: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE3_P/vescValues.rpm;
+					case 3: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE3_P/temprpm;
 					break;
-					case 4: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE4_P/vescValues.rpm;
+					case 4: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE4_P/temprpm;
 					break;
 				}
 			}
@@ -1255,9 +1260,9 @@ void loop() {
 			}
 
 			  // Unterspannungsgrenze
-#ifndef UNDERVOLTAGE_LIMIT_BY_VESC
+			#ifndef UNDERVOLTAGE_LIMIT_BY_VESC
 			  throttleControl.current_next = throttleControl.current_next * undervoltageReg.reg_out_filtered;
-#endif
+			#endif
 
 			// prevent negative current
 			 if(throttleControl.current_next < 0.0)
@@ -1323,6 +1328,9 @@ void loop() {
 		  throttleControl.throttleVoltage = throttleControl.throttleVoltage * undervoltageReg.reg_out_filtered;
 		  setThrottlePWM();
 	  }
+	  		#ifdef DISPLAY_CONNECTED
+		refreshu8x8Display();
+		#endif
   }
 
 	// ultra-langsame Routine
@@ -1338,9 +1346,9 @@ void loop() {
 		odometry.minutesTrip = millis()/60000;
 
 
-#ifdef DISPLAY_CONNECTED
-		refreshu8x8Display();
-#endif
+//		#ifdef DISPLAY_CONNECTED
+//		refreshu8x8Display();
+//		#endif
 
 		lastUltraSlowLoop = millis();
 		calculateSOC();
