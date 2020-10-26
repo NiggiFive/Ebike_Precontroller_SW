@@ -39,12 +39,13 @@
 #define MOTOR_POLES			20
 //Uebersetzungsverhaeltnis des Planetengetriebes (falls vorhanden, sonst 1)
 #define MOTOR_GEAR_RATIO 	4.42
-#define MOTOR_FLUX_LINKAGE  0.01276     //Voltseconds^
+#define MOTOR_FLUX_LINKAGE  0.01276     //Voltseconds
+#define PI                  3.14
 
 // Assume linear PSM with Ld=Lq
 #define TORQUE_PER_AMP              1.5*MOTOR_FLUX_LINKAGE      // Caution: "Electrical Torque" because Pole-Pairs are missing in formula!
 
-#define AMPS_PER_WATTS_AND_ERPM     60/(3.14*TORQUE_PER_AMP)
+#define AMPS_PER_WATTS_AND_ERPM     60/(2*PI*TORQUE_PER_AMP)
 
 #define ABS_MAX_CURRENT             30.0
 
