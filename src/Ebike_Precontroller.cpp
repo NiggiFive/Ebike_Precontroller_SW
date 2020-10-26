@@ -1199,14 +1199,11 @@ void loop() {
 			vescConnectionErrors++;
 		}
 
-		// wenn ein Fehler aufgetreten ist bei der �bertragung starte ich einfach die Schnittstelle neu
+		// restart Interface if Error occurred
 		if(vescErrorsTemp != vescConnectionErrors)
 		{
 			Serial.end();
 			Serial.begin(VESC_BAUDRATE);
-
-			// aus VESC-ARduino Beispiel, zum abwarten bis serielle Schnittstelle bereit?
-			//while (!Serial) {;}
 		}
 
 		  if(pasData.pedaling == true)
@@ -1234,7 +1231,8 @@ void loop() {
 			else if (controllerData.controlMode == POWER_CTRL)
 			{
 					temprpm = vescValues.rpm;
-					if(temprpm == 0)
+					// set to one if zero or (small) negative values occur
+					if(temprpm <= -500)
 					{
 						temprpm = 1;
 					}
@@ -1253,7 +1251,7 @@ void loop() {
 				}
 			}
 
-			//Geschwindigkeitsgrenze:
+			//Speed-Limit:
 			if(pipapo == false)
 			{
 				throttleControl.current_next = throttleControl.current_next*speedReg.vreg_out_filtered;
@@ -1300,7 +1298,7 @@ void loop() {
 	  }
 	  else
 	  {
-		  //VESC nicht angeschlossen -> PWM-Modus
+		  //VESC not connected -> PWM-Mode
 		  if(pasData.pedaling == true)
 		  {
 			  notPedalingCounter = 0;
