@@ -1170,6 +1170,10 @@ void loop() {
 
 			 //Geschwindigkeit berechnen aus ausgelesener RPM
 			speedReg.velocity = vescValues.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
+			if(speedReg.velocity < 0.0)
+			{
+				speedReg.velocity = 0.0;
+			}
 
 			// Speed-Limiting/Control (only necessary if VESC has no speed-limit)
 			#ifndef SPEED_LIMIT_BY_VESC
