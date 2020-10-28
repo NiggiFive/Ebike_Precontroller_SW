@@ -99,8 +99,10 @@ struct speedRegStruct
 
 struct odoStruct
 {
-	float kmTrip;
-	float kmOverall;
+	float kmTripMotor;
+	float kmTripWheel;
+	float kmOverallMotor;
+	float kmOverallWheel;
 	uint16_t minutesTrip;
 	uint16_t minutesOverall;
 	float wattHoursOverall;
@@ -259,8 +261,8 @@ void pas_ISR()
 void getODO()
 {
 	uint8_t temp = 0;
-	EEPROM.get(temp, odometry.kmOverall);
-	temp += sizeof(odometry.kmOverall);
+	EEPROM.get(temp, odometry.kmOverallMotor);
+	temp += sizeof(odometry.kmOverallMotor);
 	EEPROM.get(temp, odometry.minutesOverall);
 	temp+= sizeof(odometry.minutesOverall);
 	EEPROM.get(temp, odometry.wattHoursOverall);
@@ -272,8 +274,8 @@ void getODO()
 void writeODO()
 {
 	int temp = 0;
-	EEPROM.put(temp, odometry.kmOverall + odometry.kmTrip);
-	temp += sizeof(odometry.kmOverall);
+	EEPROM.put(temp, odometry.kmOverallMotor + odometry.kmTripMotor);
+	temp += sizeof(odometry.kmOverallMotor);
 	EEPROM.put(temp, odometry.minutesOverall + odometry.minutesTrip);
 	temp+= sizeof(odometry.minutesOverall);
 	EEPROM.put(temp, odometry.wattHoursOverall + vescValues.watt_hours);
@@ -646,9 +648,16 @@ void refreshu8x8Display()
 			  u8x8.clearLine(2);
 			  u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
-			  u8x8.print(F("   "));
 			  u8x8.print((int)speedReg.velocity);
 			  u8x8.print(F(" km/h "));
+			  if(controllerData.controlMode == POWER_CTRL)
+			  {
+				  u8x8.print(F("PWR"));
+			  }
+			  else
+			  {
+				  u8x8.print(F("TRQ"));
+			  }
 		}
 		else if (displayRowCounter == 2)
 		{
@@ -808,7 +817,7 @@ void refreshu8x8Display()
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
 			  u8x8.print(F("Trip: "));
-			  u8x8.print(odometry.kmTrip);
+			  u8x8.print(odometry.kmTripMotor);
 			  u8x8.print(F(" km "));
 		}
 
@@ -869,7 +878,7 @@ void refreshu8x8Display()
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
 			  u8x8.print(F("ODO: "));
-			  u8x8.print(odometry.kmOverall + odometry.kmTrip);
+			  u8x8.print(odometry.kmOverallMotor + odometry.kmTripMotor);
 			  u8x8.print(F(" km "));
 		}
 
@@ -1015,7 +1024,7 @@ void setup()
 	getODO();
 
 	// Tageskilometer auf 0 Stellen
-	odometry.kmTrip = 0;
+	odometry.kmTripMotor = 0;
 	odometry.minutesTrip = 0;
 
 #ifdef DISPLAY_CONNECTED
@@ -1236,7 +1245,7 @@ void loop() {
 			{
 					temprpm = vescValues.rpm;
 					// set to one if zero or (small) negative values occur
-					if(temprpm <= -500)
+					if(temprpm <= 0 && temprpm > -500)
 					{
 						temprpm = 1;
 					}
@@ -1341,9 +1350,9 @@ void loop() {
 		// siehe auch in mcpwm_foc.c aus bldc project von Benjamin Vedder:
 		// * The tachometer value in motor steps. The number of motor revolutions will
 		// * be this number divided by (3 * MOTOR_POLE_NUMBER).
-		odometry.kmTrip = vescValues.tachometer/(3* MOTOR_POLES * MOTOR_GEAR_RATIO);
-		odometry.kmTrip = odometry.kmTrip*RADUMFANG;
-		odometry.kmTrip = odometry.kmTrip/1000;
+		odometry.kmTripMotor = vescValues.tachometer/(3* MOTOR_POLES * MOTOR_GEAR_RATIO);
+		odometry.kmTripMotor = odometry.kmTripMotor*RADUMFANG;
+		odometry.kmTripMotor = odometry.kmTripMotor/1000;
 
 		odometry.minutesTrip = millis()/60000;
 
