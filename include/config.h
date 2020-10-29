@@ -21,9 +21,9 @@
 #define CTRL_MODE   POWER_CTRL
 
 // Reverse Up/Down-Buttons
-#define REVERSE_BUTTONS
+//#define REVERSE_BUTTONS
 
-//UART-Geschwindigkeit fuer VESC einstellen:
+//UART-Speed for VESC-Communication:
 //#define VESC_BAUDRATE 19200
 //#define VESC_BAUDRATE 28800
 //#define VESC_BAUDRATE 115200

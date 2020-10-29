@@ -21,7 +21,7 @@ bldcMeasure vescValues;	// RolingGeckos Version
 #ifdef REVERSE_BUTTONS
 	#define INPUT_3W_SW_RED 6
 	#define INPUT_3W_SW_GREEN 7
-#elif
+#else
 	#define INPUT_3W_SW_RED 7
 	#define INPUT_3W_SW_GREEN 6
 #endif
@@ -48,7 +48,7 @@ bldcMeasure vescValues;	// RolingGeckos Version
 
 #define ULTRA_SLOW_TIMER 250
 
-// Entprellzeit f�r PAS (und evtl. Taster) in ms
+// Debouncing-time for PAS (und evtl. Taster) in ms
 #define ENTPRELLZEIT 5
 
 #define MAX_CURRENT_RAMP_POS	1.0
@@ -81,6 +81,7 @@ struct controllerDataStruct
 {
 	float vInArdu = 0.0;
 	uint8_t controlMode = POWER_CTRL;
+	bool reverseDirection = false;
 };
 
 
@@ -360,7 +361,12 @@ void interpretInputs()
   //Taster auswerten:
 	if(switchRedGreen_ready == true)
 	{
-		if(switchRed_edges == 1 && switchGreen_edges == 4)
+		if (switchRed_edges == 1 && switchGreen_edges == 5)
+		{
+			controllerData.reverseDirection = !controllerData.reverseDirection;
+		}
+
+		else if(switchRed_edges == 1 && switchGreen_edges == 4)
 		{
 			pipapo = !pipapo;
 		}
@@ -734,8 +740,16 @@ void refreshu8x8Display()
 //			  u8x8.print(F(" ERPM "));
 			  u8x8.print(batteryData.batteryPower);
 			  u8x8.print(F(" W  "));
-//			  u8x8.print(controllerData.vInArdu);
-//			  u8x8.print(F("V"));
+
+			if(controllerData.reverseDirection == true)
+			{
+				u8x8.print(F("Rev."));
+			}
+			else
+			{
+				u8x8.print(F("Fwd."));
+			}
+
 		}
 		break;
 
@@ -1178,7 +1192,13 @@ void loop() {
 			batteryData.batteryPower = vescValues.inpVoltage * vescValues.avgInputCurrent;
 
 			 //Geschwindigkeit berechnen aus ausgelesener RPM
+			 
 			speedReg.velocity = vescValues.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
+			if(controllerData.reverseDirection == true)
+			{
+				speedReg.velocity = -1 * speedReg.velocity;
+			}
+
 			if(speedReg.velocity < 0.0)
 			{
 				speedReg.velocity = 0.0;
@@ -1244,11 +1264,17 @@ void loop() {
 			else if (controllerData.controlMode == POWER_CTRL)
 			{
 					temprpm = vescValues.rpm;
+					if(controllerData.reverseDirection == true)
+					{
+						temprpm = -1 * temprpm;
+					}
+
 					// set to one if zero or (small) negative values occur
 					if(temprpm <= 0 && temprpm > -500)
 					{
 						temprpm = 1;
 					}
+
 				switch(throttleControl.aktStufe)
 				{
 					case 0: throttleControl.current_next = 0.0;
@@ -1301,11 +1327,19 @@ void loop() {
 		  //not pedaling
 		  else
 		  {
-			  throttleControl.current_next = 0.0;
-			  notPedalingCounter++;
+			throttleControl.current_next = 0.0;
+			notPedalingCounter++;
+		  }
+		  if(controllerData.reverseDirection)
+		  {
+			VescUartSetCurrent(-1*throttleControl.current_next);
+
+		  }
+		  else
+		  {
+		  	VescUartSetCurrent(throttleControl.current_next);
 		  }
 
-		  VescUartSetCurrent(throttleControl.current_next);
 		  throttleControl.current_now = throttleControl.current_next;
 
 	  }
