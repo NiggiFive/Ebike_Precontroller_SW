@@ -1051,7 +1051,12 @@ void setup()
     u8x8.setFont(u8x8_font_8x13_1x2_r);
 #endif
 
-    delay(1000);
+	if (!(resetFlagRegister & _BV(WDRF)))
+	{
+		// only pause if Reset is NOT caused by Watchdog
+    	delay(1000);
+	}
+
 
 #ifdef DISPLAY_CONNECTED
     u8x8.setCursor(0,6);
@@ -1073,7 +1078,11 @@ void setup()
 	//Da muss man recht lange warten da der neue Bootloader deutlich schneller ist
 	//TODO: evtl. kann man den Delay dann abh�ngig von der resetquelle machen
 	// siehe auch hier: https://www.arduino.cc/reference/en/language/functions/communication/serial/ifserial/
-	delay(2500);
+	if (!(resetFlagRegister & _BV(WDRF)))
+	{
+		// only pause if Reset is NOT caused by Watchdog
+    	delay(2500);
+	}
 
 	// zusammen mit VESC kann man die serielle Schnittstelle nicht mehr nehmen
 	//Serial.begin(9600);
@@ -1138,7 +1147,8 @@ void setup()
 	    delay(1000);
 	}
 
-	//wdt_enable(WDTO_8S);
+	// Activate Watchdog with 8 seconds (maximum)
+	wdt_enable(WDTO_8S);
 }
 
 void loop() {
@@ -1409,5 +1419,7 @@ void loop() {
 	{
 		minFreeRAM = freeMemory();
 	}
-	//wdt_reset();
+
+	//reset watchdog
+	wdt_reset();
 }
