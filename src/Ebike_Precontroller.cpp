@@ -67,6 +67,9 @@ long temprpm = 0;
 
 uint8_t resetFlagRegister = 0;
 
+uint16_t looptime = 0;
+uint16_t dispWrtTime = 0;
+
 struct batteryDataStruct
 {
 	uint8_t numberOfCells = 9;
@@ -624,6 +627,7 @@ void undervoltageRegulator()
 #ifdef DISPLAY_CONNECTED
 void refreshu8x8Display()
 {
+	uint32_t tempTime = millis();
 	switch (displayMode)
 	{
 	// Home-Display
@@ -753,6 +757,8 @@ void refreshu8x8Display()
 		}
 		break;
 
+
+	// DEBUG Display 1
 	case 2:
 		if(displayRowCounter == 0)
 		{
@@ -804,9 +810,10 @@ void refreshu8x8Display()
 			  u8x8.clearLine(5);
 			  u8x8.setCursor(0,4);
 
-			  u8x8.print(F("FreeRAM: "));
+			  u8x8.print(F("RAM: "));
 			  //u8x8.print(freeMemory());
 			  u8x8.print(minFreeRAM);
+			  u8x8.print(F(" Bytes"));
 		}
 		else if (displayRowCounter == 3)
 		{
@@ -818,13 +825,52 @@ void refreshu8x8Display()
 			  u8x8.print(pasData.pas_factor);
 			  if(pasData.pedaling)
 			  {
-				  u8x8.print(F(" PEDAL"));
+				  u8x8.print(F(" P "));
 			  }
 		}
 		break;
 
-		// Trip
+	// DEBUT-Display 2
 	case 3:
+		if(displayRowCounter == 0)
+		{
+			  u8x8.home();
+			  u8x8.clearLine(0);
+			  u8x8.clearLine(1);
+			  u8x8.print(F("Loop: "));
+			  u8x8.print(looptime);
+			  u8x8.print(F("ms"));
+		}
+
+		else if (displayRowCounter == 1)
+		{
+			  // Zeile 2:
+			  u8x8.clearLine(2);
+			  u8x8.clearLine(3);
+			  u8x8.setCursor(0,2);
+			  u8x8.print(F("Disp: "));
+			  u8x8.print(dispWrtTime);
+			  u8x8.print(F("ms"));
+
+		}
+		else if (displayRowCounter == 2)
+		{
+			  //Zeile 3:
+			  u8x8.clearLine(4);
+			  u8x8.clearLine(5);
+			  u8x8.setCursor(0,4);
+		}
+		else if (displayRowCounter == 3)
+		{
+			  //Zeile 4:
+			  u8x8.clearLine(6);
+			  u8x8.clearLine(7);
+			  u8x8.setCursor(0,6);
+		}
+		break;
+
+		// Trip
+	case 4:
 		if(displayRowCounter == 0)
 		{
 			  u8x8.home();
@@ -885,7 +931,7 @@ void refreshu8x8Display()
 		break;
 
 	//ODO
-	case 4:
+	case 5:
 		if(displayRowCounter == 0)
 		{
 			  u8x8.home();
@@ -962,7 +1008,7 @@ void refreshu8x8Display()
 		}
 		break;
 
-	case 5: u8x8.clearDisplay();
+	case 6: u8x8.clearDisplay();
 	break;
 
 	default: break;
@@ -977,6 +1023,7 @@ void refreshu8x8Display()
 	  {
 		  displayRowCounter = 0;
 	  }
+	  dispWrtTime = millis()-tempTime;
 }
 #endif
 
@@ -1373,6 +1420,7 @@ void loop() {
 		  throttleControl.throttleVoltage = throttleControl.throttleVoltage * undervoltageReg.reg_out_filtered;
 		  setThrottlePWM();
 	  }
+	  looptime = millis()-lastSlowLoop;
 	  		#ifdef DISPLAY_CONNECTED
 		refreshu8x8Display();
 		#endif

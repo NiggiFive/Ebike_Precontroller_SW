@@ -9,7 +9,7 @@
 #define CONFIG_H_
 
 #define DISPLAY_CONNECTED
-#define DISPLAY_MODI	6
+#define DISPLAY_MODI	7
 
 //#define SPEED_LIMIT_BY_VESC
 
@@ -31,7 +31,7 @@
 
 // 1 for first Version
 // 2 for 2nd version
-#define HW_VERSION 	2
+#define HW_VERSION 	1
 
 // Motor Data
 //Anzahl Polpaare
