@@ -113,17 +113,24 @@ struct odoStruct
 	float ampHoursOverall;
 };
 
+struct displayStruct
+{
+	uint8_t RowCounter = 0;
+	uint8_t displayMode = 0;
+};
+
 speedRegStruct speedReg;
 batteryDataStruct batteryData;
 controllerDataStruct controllerData;
 undervoltageRegStruct undervoltageReg;
 odoStruct odometry;
+displayStruct display;
 
-uint8_t displayRowCounter = 0;
+
 
 int16_t minFreeRAM = 2000;		// initialisiert mit 2000. wird verringert wenn der echte freie RAM weniger ist
 
-uint8_t displayMode = 0;
+
 
 uint8_t vescConnectionErrors = 0;
 
@@ -395,10 +402,10 @@ void interpretInputs()
 		// Change Display-Mode
 		else if (switchRed_edges==1 && switchGreen_edges ==1)
 		{
-			displayMode++;
-			if(displayMode >=DISPLAY_MODI)
+			display.displayMode++;
+			if(display.displayMode >=DISPLAY_MODI)
 			{
-				displayMode = 0;
+				display.displayMode = 0;
 			}
 		}
 
@@ -628,11 +635,11 @@ void undervoltageRegulator()
 void refreshu8x8Display()
 {
 	uint32_t tempTime = millis();
-	switch (displayMode)
+	switch (display.displayMode)
 	{
 	// Home-Display
 	case 0:
-		if(displayRowCounter == 0)
+		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
 			  u8x8.clearLine(0);
@@ -652,7 +659,7 @@ void refreshu8x8Display()
 			  u8x8.print(batteryData.SOC);
 			  u8x8.print(F(" % "));
 		}
-		else if (displayRowCounter == 1)
+		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
 			  u8x8.clearLine(2);
@@ -669,7 +676,7 @@ void refreshu8x8Display()
 				  u8x8.print(F("TRQ"));
 			  }
 		}
-		else if (displayRowCounter == 2)
+		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
 			  u8x8.clearLine(4);
@@ -680,7 +687,7 @@ void refreshu8x8Display()
 			  u8x8.print(controllerData.vInArdu);
 			  u8x8.print(F("V"));
 		}
-		else if (displayRowCounter == 3)
+		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
 			  u8x8.clearLine(6);
@@ -700,7 +707,7 @@ void refreshu8x8Display()
 		break;
 
 	case 1:
-		if(displayRowCounter == 0)
+		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
 			  u8x8.clearLine(0);
@@ -712,7 +719,7 @@ void refreshu8x8Display()
 			    u8x8.print(F(" deg"));
 			  }
 		}
-		else if (displayRowCounter == 1)
+		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
 			  u8x8.clearLine(2);
@@ -722,7 +729,7 @@ void refreshu8x8Display()
 			  u8x8.print((int)vescValues.avgMotorCurrent);
 			  u8x8.print(F(" A "));
 		}
-		else if (displayRowCounter == 2)
+		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
 			  u8x8.clearLine(4);
@@ -734,7 +741,7 @@ void refreshu8x8Display()
 
 
 		}
-		else if (displayRowCounter == 3)
+		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
 			  u8x8.clearLine(6);
@@ -760,7 +767,7 @@ void refreshu8x8Display()
 
 	// DEBUG Display 1
 	case 2:
-		if(displayRowCounter == 0)
+		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
 			  u8x8.clearLine(0);
@@ -793,7 +800,7 @@ void refreshu8x8Display()
 			  //u8x8.print(resetFlagRegister);
 		}
 
-		else if (displayRowCounter == 1)
+		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
 			  u8x8.clearLine(2);
@@ -803,7 +810,7 @@ void refreshu8x8Display()
 			  u8x8.print(vescConnectionErrors);
 
 		}
-		else if (displayRowCounter == 2)
+		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
 			  u8x8.clearLine(4);
@@ -815,7 +822,7 @@ void refreshu8x8Display()
 			  u8x8.print(minFreeRAM);
 			  u8x8.print(F(" Bytes"));
 		}
-		else if (displayRowCounter == 3)
+		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
 			  u8x8.clearLine(6);
@@ -832,7 +839,7 @@ void refreshu8x8Display()
 
 	// DEBUT-Display 2
 	case 3:
-		if(displayRowCounter == 0)
+		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
 			  u8x8.clearLine(0);
@@ -842,7 +849,7 @@ void refreshu8x8Display()
 			  u8x8.print(F("ms"));
 		}
 
-		else if (displayRowCounter == 1)
+		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
 			  u8x8.clearLine(2);
@@ -853,14 +860,14 @@ void refreshu8x8Display()
 			  u8x8.print(F("ms"));
 
 		}
-		else if (displayRowCounter == 2)
+		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
 			  u8x8.clearLine(4);
 			  u8x8.clearLine(5);
 			  u8x8.setCursor(0,4);
 		}
-		else if (displayRowCounter == 3)
+		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
 			  u8x8.clearLine(6);
@@ -871,7 +878,7 @@ void refreshu8x8Display()
 
 		// Trip
 	case 4:
-		if(displayRowCounter == 0)
+		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
 			  u8x8.clearLine(0);
@@ -881,7 +888,7 @@ void refreshu8x8Display()
 			  u8x8.print(F(" km "));
 		}
 
-		else if (displayRowCounter == 1)
+		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
 			  u8x8.clearLine(2);
@@ -900,7 +907,7 @@ void refreshu8x8Display()
 			  u8x8.print(F("m "));
 		}
 
-		else if (displayRowCounter == 2)
+		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
 			  u8x8.clearLine(4);
@@ -919,7 +926,7 @@ void refreshu8x8Display()
 			  }
 
 		}
-		else if (displayRowCounter == 3)
+		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
 			  u8x8.clearLine(6);
@@ -932,7 +939,7 @@ void refreshu8x8Display()
 
 	//ODO
 	case 5:
-		if(displayRowCounter == 0)
+		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
 			  u8x8.clearLine(0);
@@ -942,7 +949,7 @@ void refreshu8x8Display()
 			  u8x8.print(F(" km "));
 		}
 
-		else if (displayRowCounter == 1)
+		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
 			  u8x8.clearLine(2);
@@ -971,7 +978,7 @@ void refreshu8x8Display()
 			  u8x8.print(F("m "));
 		}
 
-		else if (displayRowCounter == 2)
+		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
 			  u8x8.clearLine(4);
@@ -990,7 +997,7 @@ void refreshu8x8Display()
 			  }
 
 		}
-		else if (displayRowCounter == 3)
+		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
 			  u8x8.clearLine(6);
@@ -1014,14 +1021,14 @@ void refreshu8x8Display()
 	default: break;
 	}
 
-	  if(displayRowCounter < 3)
+	  if(display.RowCounter < 3)
 	  {
-		  displayRowCounter++;
+		  display.RowCounter++;
 
 	  }
 	  else
 	  {
-		  displayRowCounter = 0;
+		  display.RowCounter = 0;
 	  }
 	  dispWrtTime = millis()-tempTime;
 }

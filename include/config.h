@@ -9,6 +9,8 @@
 #define CONFIG_H_
 
 #define DISPLAY_CONNECTED
+
+// Number of Modes the Display can show:
 #define DISPLAY_MODI	7
 
 //#define SPEED_LIMIT_BY_VESC
