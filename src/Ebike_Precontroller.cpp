@@ -1101,14 +1101,7 @@ void setup()
     u8x8.setFont(u8x8_font_courB18_2x3_r);
     u8x8.home();
     u8x8.setCursor(0,2);
-    u8x8.print(F("Hallo!"));
     u8x8.setFont(u8x8_font_8x13_1x2_r);
-#endif
-
-    delay(1000);
-
-#ifdef DISPLAY_CONNECTED
-    u8x8.setCursor(0,6);
     u8x8.print(F("Warte auf VESC"));
 #endif
 
@@ -1127,13 +1120,13 @@ void setup()
 	//Da muss man recht lange warten da der neue Bootloader deutlich schneller ist
 	//TODO: evtl. kann man den Delay dann abh�ngig von der resetquelle machen
 	// siehe auch hier: https://www.arduino.cc/reference/en/language/functions/communication/serial/ifserial/
-	delay(2500);
+	//delay(2500);
 
 	// zusammen mit VESC kann man die serielle Schnittstelle nicht mehr nehmen
 	//Serial.begin(9600);
 	Serial.begin(VESC_BAUDRATE);
 
-	// Zellspannung einmal abfragen fuer 6s-9s-Erkennung:
+	// get Battery-Voltage to detect Number of Cells
     readVoltagesArdu();
     if (batteryData.vBatArdu > BAT10S12S_GRENZE)
     {
@@ -1166,10 +1159,10 @@ void setup()
 		minFreeRAM = freeMemory();
 	}
 
-	//3mal Verbindung zum VESC checken
-	for(int i = 0; i<3; i++)
+	// check connection to VESC until timout reached
+	uint32_t tempTime = millis();
+	while (millis()-tempTime < VESC_TIMEOUT)
 	{
-		//if(UART.getVescValues())
 		if(VescUartGetValue(vescValues))
 		{
 			//LED einschalten und weiter zur loop
@@ -1178,6 +1171,19 @@ void setup()
 			break;
 		}
 	}
+
+	//3mal Verbindung zum VESC checken
+	// for(int i = 0; i<3; i++)
+	// {
+	// 	//if(UART.getVescValues())
+	// 	if(VescUartGetValue(vescValues))
+	// 	{
+	// 		//LED einschalten und weiter zur loop
+	// 		vesc_connected = true;
+	// 		digitalWrite(LED, HIGH);
+	// 		break;
+	// 	}
+	// }
 
 	//wenn kein Vesc dran haengt serielle Schnittstelle beenden
 	if(vesc_connected == false)
@@ -1195,42 +1201,8 @@ void setup()
 	//wdt_enable(WDTO_8S);
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
-
-	if(millis() > milliseconds)
-	{
-		milliseconds = millis();
-	}
-
-	// PAS-Timeout?
-	if ((millis() - pasData.last_pas_event) > PAS_TIMEOUT)
-	{
-		pasData.pedaling = false;
-		pasData.pas_factor = 0;
-		pasData.pas_factor_filtered = 0;
-	}
-
-	// Schnelle Routine -> hier werden nur die Taster ausgelesen
-	if((millis()-lastFastLoop) > FAST_TIMER)
-	{
-		lastFastLoop = millis();
-		checkTaster();
-		readVoltagesArdu();
-
-		//wenn Spannung stark abgesunken -> TachoWerte auf EEPROM schreiben
-		if(batteryData.vBatArdu < (0.7 * batteryData.undervoltageThreshold) && batteryData.vBatArdu > 5.0)
-		{
-			writeODO();
-			delay(5000);
-		}
-	}
-
-	// langsame Routine
-  if((milliseconds - lastSlowLoop) > SLOW_TIMER)
-  {
-	  lastSlowLoop = millis();
-
+void slowLoop()
+{
 	  	  //LED blinken lassen zum Anzeigen ob noch aktiv
 		bool temp = digitalRead(LED);
 		digitalWrite(LED, !temp);
@@ -1428,14 +1400,55 @@ void loop() {
 		  setThrottlePWM();
 	  }
 	  looptime = millis()-lastSlowLoop;
-	  		#ifdef DISPLAY_CONNECTED
-		refreshu8x8Display();
-		#endif
+	#ifdef DISPLAY_CONNECTED
+	refreshu8x8Display();
+	#endif
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+	if(millis() > milliseconds)
+	{
+		milliseconds = millis();
+	}
+
+	// PAS-Timeout?
+	if ((millis() - pasData.last_pas_event) > PAS_TIMEOUT)
+	{
+		pasData.pedaling = false;
+		pasData.pas_factor = 0;
+		pasData.pas_factor_filtered = 0;
+	}
+
+	// Schnelle Routine -> hier werden nur die Taster ausgelesen
+	if((millis()-lastFastLoop) > FAST_TIMER)
+	{
+		lastFastLoop = millis();
+		checkTaster();
+		readVoltagesArdu();
+
+		//wenn Spannung stark abgesunken -> TachoWerte auf EEPROM schreiben
+		if(batteryData.vBatArdu < (0.7 * batteryData.undervoltageThreshold) && batteryData.vBatArdu > 5.0)
+		{
+			writeODO();
+			delay(5000);
+		}
+	}
+
+	// langsame Routine
+  if((millis() - lastSlowLoop) > SLOW_TIMER)
+  {
+		lastSlowLoop = millis();
+	  	slowLoop();
+
   }
 
 	// ultra-langsame Routine
-	if((milliseconds - lastUltraSlowLoop) > ULTRA_SLOW_TIMER)
+	if((millis() - lastUltraSlowLoop) > ULTRA_SLOW_TIMER)
 	{
+		lastUltraSlowLoop = millis();
+
 		// siehe auch in mcpwm_foc.c aus bldc project von Benjamin Vedder:
 		// * The tachometer value in motor steps. The number of motor revolutions will
 		// * be this number divided by (3 * MOTOR_POLE_NUMBER).
@@ -1444,13 +1457,6 @@ void loop() {
 		odometry.kmTripMotor = odometry.kmTripMotor/1000;
 
 		odometry.minutesTrip = millis()/60000;
-
-
-//		#ifdef DISPLAY_CONNECTED
-//		refreshu8x8Display();
-//		#endif
-
-		lastUltraSlowLoop = millis();
 		calculateSOC();
 
 		// bei bedarf Unterstuetzung auf default zur�ckstellen nach gewisser Zeit

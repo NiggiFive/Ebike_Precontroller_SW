@@ -51,6 +51,9 @@
 
 #define ABS_MAX_CURRENT             30.0
 
+// Time in Milliseconds to wait for VESC on Startup
+#define VESC_TIMEOUT                5000
+
 //Radumfang in Metern
 //fuer 28 Zoll (Schwalbe Marathon)
 //#define RADUMFANG 			2.155
