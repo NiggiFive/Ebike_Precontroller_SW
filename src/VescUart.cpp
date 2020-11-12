@@ -36,7 +36,7 @@ int ReceiveUartMessage(uint8_t* payloadReceived, int num) {
 	uint16_t lenPayload = 0;
 	HardwareSerial *serial;
 	serial=&Serial;
-	uint32_t timeout = millis() + 100; // Defining the timestamp for timeout (100ms before timeout)
+	uint32_t timeout = millis() + 50; // Defining the timestamp for timeout (100ms before timeout)
 
 	while ( millis() < timeout && messageRead == false) {
 
