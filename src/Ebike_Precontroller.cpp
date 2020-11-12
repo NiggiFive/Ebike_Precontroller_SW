@@ -1198,7 +1198,7 @@ void setup()
 	    delay(1000);
 	}
 
-	//wdt_enable(WDTO_8S);
+	wdt_enable(WDTO_2S);
 }
 
 void slowLoop()
@@ -1470,5 +1470,5 @@ void loop() {
 	{
 		minFreeRAM = freeMemory();
 	}
-	//wdt_reset();
+	wdt_reset();
 }
