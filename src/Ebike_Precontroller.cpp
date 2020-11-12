@@ -43,8 +43,10 @@ bldcMeasure vescValues;	// RolingGeckos Version
 // 10ms Timer
 #define FAST_TIMER 10
 
-//100ms Timer
-#define SLOW_TIMER 100
+//100ms Timers:
+#define CTRL_TIMER 100
+#define DISP_TIMER 100
+//#define SLOW_TIMER 100
 
 #define ULTRA_SLOW_TIMER 250
 
@@ -59,16 +61,17 @@ bldcMeasure vescValues;	// RolingGeckos Version
 U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(A5, A4);
 #endif
 
-unsigned long milliseconds;
-
 uint16_t notPedalingCounter;
 
 long temprpm = 0;
 
 uint8_t resetFlagRegister = 0;
 
-uint16_t looptime = 0;
-uint16_t dispWrtTime = 0;
+uint16_t CtrlLoopTime = 0;
+uint16_t DispWrtTime = 0;
+
+uint16_t longestCtrlLoopTime = 0;
+uint16_t longestDispWrtTime = 0;
 
 struct batteryDataStruct
 {
@@ -177,7 +180,8 @@ struct tasterStruct
 
 
 //Variables for Timer
-	uint32_t lastSlowLoop;
+	uint32_t lastCtrlLoop;
+	uint32_t lastDispLoop;
 	uint32_t lastUltraSlowLoop;
 	uint32_t lastFastLoop;
 
@@ -642,62 +646,94 @@ void refreshu8x8Display()
 		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
-			  u8x8.clearLine(0);
-			  u8x8.clearLine(1);
+			  //u8x8.clearLine(0);
+			  //u8x8.clearLine(1);
 			  if(vesc_connected)
 			  {
+				  // 2 Zeichen
 				  u8x8.print((int)vescValues.inpVoltage);
 			  }
 			  else
 			  {
 				  u8x8.print((int)batteryData.vBatArdu);
 			  }
-			  u8x8.print(F(" V  "));
+			  //3 Zeichen
+			  u8x8.print(F(" V "));
+			  // 1-2 Zeichen
 			  u8x8.print(batteryData.numberOfCells);
-			  u8x8.print(F("s "));
+			  // 3 Zeichen
+			  if(batteryData.numberOfCells <= 9)
+			  {
+			  	u8x8.print(F("s  "));
+			  }
+			  else
+			  {
+			  	u8x8.print(F("s "));
+			  }
+
 			  //SOC Ausgeben
+			  // 2-3 Zeichen
 			  u8x8.print(batteryData.SOC);
-			  u8x8.print(F(" % "));
+			  // 3 Zeichen
+			  if(batteryData.SOC >= 100)
+			  {
+			  	u8x8.print(F(" %"));
+			  }
+			  else
+			  {
+				u8x8.print(F(" % "));
+			  }
+
 		}
 		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
-			  u8x8.clearLine(2);
-			  u8x8.clearLine(3);
+			  //u8x8.clearLine(2);
+			  //u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
+			  // 1-2 Zeichen
 			  u8x8.print((int)speedReg.velocity);
-			  u8x8.print(F(" km/h "));
+			  // 8 Zeichen
+			  u8x8.print(F(" km/h   "));
 			  if(controllerData.controlMode == POWER_CTRL)
 			  {
-				  u8x8.print(F("PWR"));
+				  //5 Zeichen
+				  u8x8.print(F("PWR  "));
 			  }
 			  else
 			  {
-				  u8x8.print(F("TRQ"));
+				  u8x8.print(F("TRQ  "));
 			  }
 		}
 		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
-			  u8x8.clearLine(4);
-			  u8x8.clearLine(5);
+			  //u8x8.clearLine(4);
+			  //u8x8.clearLine(5);
 			  u8x8.setCursor(0,4);
+			  // 1-3 Zeichen
 			  u8x8.print(batteryData.batteryPower);
+			  // 5 Zeichen
 			  u8x8.print(F(" W   "));
+			  // 5 Zeichen
 			  u8x8.print(controllerData.vInArdu);
-			  u8x8.print(F("V"));
+			  // 3 Zeichen
+			  u8x8.print(F("V  "));
 		}
 		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
-			  u8x8.clearLine(6);
-			  u8x8.clearLine(7);
+			  //u8x8.clearLine(6);
+			  //u8x8.clearLine(7);
 			  u8x8.setCursor(0,6);
+			  // 6 Zeichen
 			  u8x8.print(F("Stufe "));
+			  // 1 Zeichen
 			  u8x8.print(throttleControl.aktStufe);
 			  if(pasData.pedaling)
 			  {
-				  u8x8.print(F("   P"));
+				  // 6 Zeichen
+				  u8x8.print(F("   P  "));
 			  }
 			  else
 			  {
@@ -710,55 +746,68 @@ void refreshu8x8Display()
 		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
-			  u8x8.clearLine(0);
-			  u8x8.clearLine(1);
+
 			  if(vesc_connected == true)
 			  {
 			  	u8x8.print(F("VESC: "));
 				u8x8.print((int)vescValues.temp_mos);
-			    u8x8.print(F(" deg"));
+			    u8x8.print(F(" deg  "));
+			  }
+			  else
+			  {
+				u8x8.clearLine(0);
+			    u8x8.clearLine(1);
 			  }
 		}
 		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
-			  u8x8.clearLine(2);
-			  u8x8.clearLine(3);
+			  //u8x8.clearLine(2);
+			  //u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
+			  // 7 Zeichen
 			  u8x8.print(F("Imot = "));
+			  // 1-2 Zeichen
 			  u8x8.print((int)vescValues.avgMotorCurrent);
-			  u8x8.print(F(" A "));
+			  //5 Zeichen
+			  u8x8.print(F(" A   "));
 		}
 		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
-			  u8x8.clearLine(4);
-			  u8x8.clearLine(5);
+			  //u8x8.clearLine(4);
+			  //u8x8.clearLine(5);
 			  u8x8.setCursor(0,4);
+			  // 7 Zeichen
 			  u8x8.print(F("Ibat = "));
+			  //1-2 Zeichen
 			  u8x8.print((int)vescValues.avgInputCurrent);
-			  u8x8.print(F(" A"));
-
+			  // 5 Zeichen
+			  u8x8.print(F(" A   "));
 
 		}
 		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
-			  u8x8.clearLine(6);
-			  u8x8.clearLine(7);
+			  //u8x8.clearLine(6);
+			  //u8x8.clearLine(7);
 			  u8x8.setCursor(0,6);
 //			  u8x8.print(vescValues.rpm);
 //			  u8x8.print(F(" ERPM "));
+			// 1-3 Zeichen
 			  u8x8.print(batteryData.batteryPower);
+			  // 4 Zeichen
 			  u8x8.print(F(" W  "));
 
 			if(controllerData.reverseDirection == true)
 			{
-				u8x8.print(F("Rev."));
+				// 6 Zeichen
+				u8x8.print(F("Rev.  "));
 			}
 			else
 			{
-				u8x8.print(F("Fwd."));
+				// 6 Zeichen
+				u8x8.print(F("Fwd.  "));
 			}
 
 		}
@@ -772,7 +821,7 @@ void refreshu8x8Display()
 			  u8x8.home();
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
-			  //u8x8.print(F("RST: "));
+			  // Reset-Auswertung:
 			  if (resetFlagRegister & _BV(EXTRF))
 				{
 				     // Reset button or otherwise some software reset
@@ -837,27 +886,31 @@ void refreshu8x8Display()
 		}
 		break;
 
-	// DEBUT-Display 2
+	// DEBUG-Display 2
 	case 3:
 		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
-			  u8x8.print(F("Loop: "));
-			  u8x8.print(looptime);
+			  // 10 Zeichen
+			  u8x8.print(F("CtrlLoop: "));
+			  u8x8.print(CtrlLoopTime);
 			  u8x8.print(F("ms"));
 		}
 
 		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
-			  u8x8.clearLine(2);
-			  u8x8.clearLine(3);
+			  //u8x8.clearLine(2);
+			  //u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
-			  u8x8.print(F("Disp: "));
-			  u8x8.print(dispWrtTime);
-			  u8x8.print(F("ms"));
+			  // 6 Zeichen
+			  u8x8.print(F("max: "));
+			  // 1-2 Zeichen
+			  u8x8.print(longestCtrlLoopTime);
+			  // 5 Zeichen
+			  u8x8.print(F("ms   "));
 
 		}
 		else if (display.RowCounter == 2)
@@ -866,6 +919,9 @@ void refreshu8x8Display()
 			  u8x8.clearLine(4);
 			  u8x8.clearLine(5);
 			  u8x8.setCursor(0,4);
+			  u8x8.print(F("Disp: "));
+			  u8x8.print(DispWrtTime);
+			  u8x8.print(F("ms"));
 		}
 		else if (display.RowCounter == 3)
 		{
@@ -873,6 +929,11 @@ void refreshu8x8Display()
 			  u8x8.clearLine(6);
 			  u8x8.clearLine(7);
 			  u8x8.setCursor(0,6);
+			  u8x8.print(F("max: "));
+			  // 1-2 Zeichen
+			  u8x8.print(longestDispWrtTime);
+			  // 5 Zeichen
+			  u8x8.print(F("ms   "));
 		}
 		break;
 
@@ -883,6 +944,7 @@ void refreshu8x8Display()
 			  u8x8.home();
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
+			  // 6 Zeichen
 			  u8x8.print(F("Trip: "));
 			  u8x8.print(odometry.kmTripMotor);
 			  u8x8.print(F(" km "));
@@ -1030,7 +1092,11 @@ void refreshu8x8Display()
 	  {
 		  display.RowCounter = 0;
 	  }
-	  dispWrtTime = millis()-tempTime;
+	  DispWrtTime = millis()-tempTime;
+	  if(DispWrtTime > longestDispWrtTime)
+	  {
+		  longestDispWrtTime = DispWrtTime;
+	  }
 }
 #endif
 
@@ -1104,11 +1170,6 @@ void setup()
     u8x8.setFont(u8x8_font_8x13_1x2_r);
     u8x8.print(F("Warte auf VESC"));
 #endif
-
-
-	/* millis() Returns the number of milliseconds passed since the Arduino board
-	began running the current program. This number will overflow (go back to zero), after approximately 50 days. */
-	milliseconds = millis();
 
 	// Interrupt fuer PAS konfigurieren
 	attachInterrupt(digitalPinToInterrupt(INPUT_PAS), pas_ISR, CHANGE);
@@ -1194,14 +1255,17 @@ void setup()
 			u8x8.home();
 			u8x8.println(F("VESC not found"));
 	    	u8x8.print(F("PWM-Modus aktiv"));
+			delay(1000);
+			u8x8.clear();
 		#endif
-	    delay(1000);
+	    
+
 	}
 
 	wdt_enable(WDTO_2S);
 }
 
-void slowLoop()
+void CtrlLoop()
 {
 	  	  //LED blinken lassen zum Anzeigen ob noch aktiv
 		bool temp = digitalRead(LED);
@@ -1399,19 +1463,15 @@ void slowLoop()
 		  throttleControl.throttleVoltage = throttleControl.throttleVoltage * undervoltageReg.reg_out_filtered;
 		  setThrottlePWM();
 	  }
-	  looptime = millis()-lastSlowLoop;
-	#ifdef DISPLAY_CONNECTED
-	refreshu8x8Display();
-	#endif
+	  CtrlLoopTime = millis()-lastCtrlLoop;
+	  if (CtrlLoopTime > longestCtrlLoopTime)
+	  {
+		  longestCtrlLoopTime = CtrlLoopTime;
+	  }
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-
-	if(millis() > milliseconds)
-	{
-		milliseconds = millis();
-	}
 
 	// PAS-Timeout?
 	if ((millis() - pasData.last_pas_event) > PAS_TIMEOUT)
@@ -1436,16 +1496,25 @@ void loop() {
 		}
 	}
 
-	// langsame Routine
-  if((millis() - lastSlowLoop) > SLOW_TIMER)
+	// Controller - Routine
+  else if((millis() - lastCtrlLoop) > CTRL_TIMER)
   {
-		lastSlowLoop = millis();
-	  	slowLoop();
+		lastCtrlLoop = millis();
+	  	CtrlLoop();
 
   }
 
+	// Write-Display-Routine
+  if ((millis()- lastDispLoop) > DISP_TIMER)
+  {
+	  lastDispLoop = millis();
+	#ifdef DISPLAY_CONNECTED
+	refreshu8x8Display();
+	#endif
+  }
+
 	// ultra-langsame Routine
-	if((millis() - lastUltraSlowLoop) > ULTRA_SLOW_TIMER)
+	else if((millis() - lastUltraSlowLoop) > ULTRA_SLOW_TIMER)
 	{
 		lastUltraSlowLoop = millis();
 
