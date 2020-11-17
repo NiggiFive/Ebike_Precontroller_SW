@@ -501,11 +501,25 @@ void calculateSOC()
 
 	if(vesc_connected)
 	{
-		batteryData.avgCellVolt = vescValues.inpVoltage/batteryData.numberOfCells;
+		if(batteryData.numberOfCells == 0)
+		{
+			batteryData.avgCellVolt = 0;
+		}
+		else
+		{
+			batteryData.avgCellVolt = vescValues.inpVoltage/batteryData.numberOfCells;
+		}
 	}
 	else
 	{
-		batteryData.avgCellVolt = batteryData.vBatArdu/batteryData.numberOfCells;
+		if(batteryData.numberOfCells == 0)
+		{
+			batteryData.avgCellVolt = 0;
+		}
+		else
+		{
+			batteryData.avgCellVolt = batteryData.vBatArdu/batteryData.numberOfCells;
+		}
 	}
 	if(batteryData.numberOfCells == 10)
 	{
@@ -605,7 +619,8 @@ void calculateSOC()
 
 void setThrottlePWM()
 {
-  analogWrite(OUTPUT_THROTTLE, throttleControl.throttleVoltage/5*255.0);
+	// deactivated because Throttle Pin is used for UART-Switch
+  //analogWrite(OUTPUT_THROTTLE, throttleControl.throttleVoltage/5*255.0);
 }
 
 void undervoltageRegulator()
@@ -867,9 +882,8 @@ void refreshu8x8Display()
 			  u8x8.setCursor(0,4);
 
 			  u8x8.print(F("RAM: "));
-			  //u8x8.print(freeMemory());
 			  u8x8.print(minFreeRAM);
-			  u8x8.print(F(" Bytes"));
+			  u8x8.print(F("B"));
 		}
 		else if (display.RowCounter == 3)
 		{
@@ -894,7 +908,7 @@ void refreshu8x8Display()
 			  u8x8.clearLine(0);
 			  u8x8.clearLine(1);
 			  // 10 Zeichen
-			  u8x8.print(F("CtrlLoop: "));
+			  u8x8.print(F("Ctrl: "));
 			  u8x8.print(CtrlLoopTime);
 			  u8x8.print(F("ms"));
 		}
@@ -1102,8 +1116,6 @@ void refreshu8x8Display()
 
 void setup()
 {
-  // put your setup code here, to run once:
-
 	resetFlagRegister = MCUSR;
 	 // Clear all MCUSR registers immediately for 'next use'
 	//MCUSR = 0;
@@ -1112,7 +1124,11 @@ void setup()
 	pinMode(PIN_A4, OUTPUT);
 	digitalWrite(PIN_A4, 0);
 
-	//PAS-Sensor-Eingang:
+	// Pin A1 ist die Versorgung für den Analog-Switch für die UART-Verbindung
+	pinMode(PIN_A1, OUTPUT);
+	digitalWrite(PIN_A1, 1);
+
+	//PAS-Sensor-Input:
 	pinMode(INPUT_PAS, INPUT_PULLUP);
 
 	// Gas-Taster-Eingang:
@@ -1126,11 +1142,12 @@ void setup()
 	//3W-Switch-Green-Eingang:
 	pinMode(INPUT_3W_SW_GREEN, INPUT_PULLUP);
 
-	//Throttle PWM-Output:
+	//Throttle PWM-Output: (Used to enable/disable UART-Connection to VESC)
 	pinMode(OUTPUT_THROTTLE, OUTPUT);
+	// Block Connection to VESC
+	digitalWrite(OUTPUT_THROTTLE, 0);
 
-	//fuer Display:
-	//Display-Versorgung einschalten:
+	//Turn on Display-Supply
 	pinMode(OUTPUT_DISPLAY_SUPPLY, OUTPUT);
 	if (HW_VERSION == 2)
 	{
@@ -1143,16 +1160,20 @@ void setup()
 		digitalWrite(OUTPUT_DISPLAY_SUPPLY, LOW);
 	}
 
-
 	//Licht-Ausgang konfigurieren
 	pinMode(OUTPUT_LIGHT, OUTPUT);
-	//Licht anschalten
+	//Turn on Headlight
 	digitalWrite(OUTPUT_LIGHT, HIGH);
 
 	//LED auf ArduinoNano Pin 13
 	pinMode(LED, OUTPUT);
 	digitalWrite(LED, LOW);
 
+	// Interrupt fuer PAS konfigurieren
+	attachInterrupt(digitalPinToInterrupt(INPUT_PAS), pas_ISR, CHANGE);
+
+	// falling-edge interrupt fuer Taster konfigurieren	-> TODO
+	//attachInterrupt(digitalPinToInterrupt(INPUT_TASTER1), taster_ISR, FALLING);
 
 	// Gesamtkilometer etc aus EEPROM auslesen
 	getODO();
@@ -1167,27 +1188,20 @@ void setup()
     u8x8.setFont(u8x8_font_courB18_2x3_r);
     u8x8.home();
     u8x8.setCursor(0,2);
-    u8x8.setFont(u8x8_font_8x13_1x2_r);
-    u8x8.print(F("Warte auf VESC"));
+    //u8x8.setFont(u8x8_font_8x13_1x2_r);
+	u8x8.setFont(u8x8_font_profont29_2x3_r);
+    //u8x8.print(F("Warte auf VESC"));
+	u8x8.print(F("Hallo"));
+	u8x8.setFont(u8x8_font_8x13_1x2_r);
 #endif
 
-	// Interrupt fuer PAS konfigurieren
-	attachInterrupt(digitalPinToInterrupt(INPUT_PAS), pas_ISR, CHANGE);
-
-	// falling-edge interrupt fuer Taster konfigurieren	-> TODO
-	//attachInterrupt(digitalPinToInterrupt(INPUT_TASTER1), taster_ISR, FALLING);
-
-	//Delay bis VESC ready ist:
-	//Da muss man recht lange warten da der neue Bootloader deutlich schneller ist
-	//TODO: evtl. kann man den Delay dann abh�ngig von der resetquelle machen
-	// siehe auch hier: https://www.arduino.cc/reference/en/language/functions/communication/serial/ifserial/
-	//delay(2500);
-
-	// zusammen mit VESC kann man die serielle Schnittstelle nicht mehr nehmen
-	//Serial.begin(9600);
-	Serial.begin(VESC_BAUDRATE);
-
-	// get Battery-Voltage to detect Number of Cells
+	if(freeMemory() < minFreeRAM)
+	{
+		minFreeRAM = freeMemory();
+	}
+	delay(100);
+	//get Battery-Voltage from Arduino to decide if connection to VESC should be enabled:
+	// and to detect Number of Cells
     readVoltagesArdu();
     if (batteryData.vBatArdu > BAT10S12S_GRENZE)
     {
@@ -1209,42 +1223,39 @@ void setup()
 		batteryData.numberOfCells = 6;
 		batteryData.undervoltageThreshold = UNDERVOLTAGE_6S;
 	}
-	else
+	else if (batteryData.vBatArdu > NOBAT_VOLTAGE)
 	{
 		batteryData.numberOfCells = 3;
 		batteryData.undervoltageThreshold = UNDERVOLTAGE_3S;
-
 	}
-	if(freeMemory() < minFreeRAM)
+	else
 	{
-		minFreeRAM = freeMemory();
+		batteryData.numberOfCells = 0;
 	}
 
-	// check connection to VESC until timout reached
-	uint32_t tempTime = millis();
-	while (millis()-tempTime < VESC_TIMEOUT)
+	// Enable Connection to VESC if Battery Connected
+	if(batteryData.numberOfCells > 0)
 	{
-		if(VescUartGetValue(vescValues))
+		digitalWrite(OUTPUT_THROTTLE, 1);
+		Serial.begin(VESC_BAUDRATE);
+
+		// check connection to VESC until timout reached
+		uint32_t tempTime = millis();
+		while (millis()-tempTime < VESC_TIMEOUT)
 		{
-			//LED einschalten und weiter zur loop
-			vesc_connected = true;
-			digitalWrite(LED, HIGH);
-			break;
+			if(VescUartGetValue(vescValues))
+			{
+				//LED einschalten und weiter zur loop
+				vesc_connected = true;
+				digitalWrite(LED, HIGH);
+				break;
+			}
 		}
 	}
-
-	//3mal Verbindung zum VESC checken
-	// for(int i = 0; i<3; i++)
-	// {
-	// 	//if(UART.getVescValues())
-	// 	if(VescUartGetValue(vescValues))
-	// 	{
-	// 		//LED einschalten und weiter zur loop
-	// 		vesc_connected = true;
-	// 		digitalWrite(LED, HIGH);
-	// 		break;
-	// 	}
-	// }
+	else
+	{
+		digitalWrite(OUTPUT_THROTTLE, 0);
+	}
 
 	//wenn kein Vesc dran haengt serielle Schnittstelle beenden
 	if(vesc_connected == false)
@@ -1257,8 +1268,7 @@ void setup()
 	    	u8x8.print(F("PWM-Modus aktiv"));
 			delay(1000);
 			u8x8.clear();
-		#endif
-	    
+		#endif    
 
 	}
 

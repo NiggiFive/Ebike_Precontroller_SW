@@ -83,10 +83,11 @@
 #define UNDERVOLTAGE_3S	3.3*3.0
 
 // Grenze zur Erkennung 6s vs. 9s vs. 12s Batterie
-#define BAT10S12S_GRENZE 42.0
-#define BAT9S10S_GRENZE 37.0
-#define BAT6S9S_GRENZE 26.0
-#define BAT3S6S_GRENZE 15.0
+#define BAT10S12S_GRENZE    42.0
+#define BAT9S10S_GRENZE     37.0
+#define BAT6S9S_GRENZE      26.0
+#define BAT3S6S_GRENZE      15.0
+#define NOBAT_VOLTAGE       7.5
 
 // Werte fuer Pedalsensierung:
 #define DOUBLE_HALL	0			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
