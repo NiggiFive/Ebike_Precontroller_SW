@@ -1357,6 +1357,8 @@ void CtrlLoop()
 					break;
 					case 4: throttleControl.current_next = STUFE4_I;
 					break;
+					case 5: throttleControl.current_next = STUFE5_I;
+					break;
 					default: throttleControl.current_next = 0.0;
 					break;
 				}
@@ -1386,6 +1388,10 @@ void CtrlLoop()
 					case 3: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE3_P/temprpm;
 					break;
 					case 4: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE4_P/temprpm;
+					break;
+					case 5: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE5_P/temprpm;
+					break;
+					default: throttleControl.current_next = 0.0;
 					break;
 				}
 			}

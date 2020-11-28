@@ -33,7 +33,7 @@
 
 // 1 for first Version
 // 2 for 2nd version
-#define HW_VERSION 	1
+#define HW_VERSION 	2
 
 // Motor Data
 //Anzahl Polpaare
@@ -107,20 +107,21 @@
 // Zeitfenster fuer Tastereingabe in ms
 #define TASTER_TIME_WINDOW 500
 
-#define ANZAHL_STUFEN	4
+#define ANZAHL_STUFEN	5
 
 // Strom-Stufen fuer VESC
-//#define STUFE5_I 30
+#define STUFE5_I 30
 #define STUFE4_I 30		// -> 30A schiebt schon krass
 #define STUFE3_I 20
 #define STUFE2_I 12
 #define STUFE1_I 6 		// 4A war ziemlich wenig
 
 // Power-Modes for VESC:
-#define STUFE4_P 500
-#define STUFE3_P 350
-#define STUFE2_P 200
-#define STUFE1_P 100
+#define STUFE5_P 500
+#define STUFE4_P 350
+#define STUFE3_P 200
+#define STUFE2_P 100
+#define STUFE1_P 70
 
 
 // Geschwindigkeits-Stufen Ausgangsspannungen fuer Ku-63
