@@ -406,6 +406,9 @@ void interpretInputs()
 		// Change Display-Mode
 		else if (switchRed_edges==1 && switchGreen_edges ==1)
 		{
+			#ifdef DISPLAY_CONNECTED
+			u8x8.clearDisplay();
+			#endif
 			display.displayMode++;
 			if(display.displayMode >=DISPLAY_MODI)
 			{
@@ -658,7 +661,114 @@ void refreshu8x8Display()
 	{
 	// Home-Display
 	case 0:
-		if(display.RowCounter == 0)
+	if (display.RowCounter == 0)
+	{
+		u8x8.setCursor(1,0);
+		u8x8.setFont(u8x8_font_courB18_2x3_r);
+		if((int)speedReg.velocity < 10)
+		{
+			u8x8.print(F(" "));
+		}
+		u8x8.print((int)speedReg.velocity);
+		u8x8.setFont(u8x8_font_8x13_1x2_r);
+		u8x8.print(F(" km/h "));
+		u8x8.setCursor(13,0);
+
+		u8x8.setFont(u8x8_font_courB18_2x3_r);
+		u8x8.print(throttleControl.aktStufe);
+	}
+
+	else if (display.RowCounter ==1)
+	{
+				u8x8.setCursor(1, 3);
+
+	if(batteryData.SOC < 100)
+	{
+		u8x8.print(" ");
+		if(batteryData.SOC == 0)
+		{
+			u8x8.print(" ");
+		}
+	}
+	u8x8.print(batteryData.SOC);
+	u8x8.print("%");
+	}
+
+	else if (display.RowCounter == 2)
+	{
+		u8x8.setFont(u8x8_font_8x13_1x2_r);	
+		u8x8.setCursor(0,6);
+		if(vesc_connected)
+		{
+			u8x8.print((int)vescValues.inpVoltage);
+		}
+		else
+		{
+			u8x8.print((int)batteryData.vBatArdu);
+		}
+		u8x8.print("V");
+
+        u8x8.setCursor(4,6);
+		if(batteryData.numberOfCells <=9)
+		{
+			u8x8.print(" ");
+		}
+		u8x8.print(batteryData.numberOfCells);
+		u8x8.print(F("s"));
+
+		u8x8.setCursor(8,6);
+		if(batteryData.batteryPower < 100.0)
+		{
+			u8x8.print(" ");
+			if(batteryData.batteryPower < 10.0)
+			{
+				u8x8.print(" ");
+			}
+		}
+		u8x8.print(batteryData.batteryPower);
+		u8x8.print(F(" W"));
+	}
+	break;
+
+	case 1:
+		if (display.RowCounter == 0)
+		{
+			u8x8.setFont(u8x8_font_8x13_1x2_r);
+			u8x8.setCursor(1,0);
+			u8x8.print(F("Imot:"));
+			u8x8.setCursor(8,0);
+			u8x8.print(F("Ibat:"));
+		}
+
+		else if (display.RowCounter == 1)
+		{
+			u8x8.setFont(u8x8_font_courB18_2x3_r);
+			u8x8.setCursor(1,2);
+			u8x8.print((int)vescValues.avgMotorCurrent);
+			u8x8.print("A");
+			if((int)vescValues.avgMotorCurrent < 10)
+			{
+				u8x8.print(" ");
+			}
+			u8x8.setCursor(8,2);
+			u8x8.print((int)vescValues.avgInputCurrent);
+			u8x8.print("A");
+			if((int)vescValues.avgInputCurrent < 10)
+			{
+				u8x8.print(" ");
+			}
+		}
+		else if (display.RowCounter == 2)
+		{
+			u8x8.setFont(u8x8_font_courB18_2x3_r);
+			u8x8.setCursor(4,5);
+			u8x8.print((int)vescValues.temp_mos);
+			u8x8.setFont(u8x8_font_8x13_1x2_r);
+			u8x8.print(F(" deg"));
+		}
+		break;
+
+/*		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
 			  //u8x8.clearLine(0);
@@ -755,9 +865,9 @@ void refreshu8x8Display()
 				  u8x8.print(F("      "));
 			  }
 		}
-		break;
+		break;*/
 
-	case 1:
+/*	case 1:
 		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
@@ -826,7 +936,7 @@ void refreshu8x8Display()
 			}
 
 		}
-		break;
+		break;*/
 
 
 	// DEBUG Display 1
@@ -883,7 +993,6 @@ void refreshu8x8Display()
 
 			  u8x8.print(F("RAM: "));
 			  u8x8.print(minFreeRAM);
-			  u8x8.print(F("B"));
 		}
 		else if (display.RowCounter == 3)
 		{
@@ -1187,12 +1296,14 @@ void setup()
 
     u8x8.setFont(u8x8_font_courB18_2x3_r);
     u8x8.home();
+	//u8x8.setBusClock(200000);
     u8x8.setCursor(0,2);
     //u8x8.setFont(u8x8_font_8x13_1x2_r);
-	u8x8.setFont(u8x8_font_profont29_2x3_r);
+	//u8x8.setFont(u8x8_font_profont29_2x3_r);
+	//u8x8.setFont(u8x8_font_inb33_3x6_r);
     //u8x8.print(F("Warte auf VESC"));
-	u8x8.print(F("Hallo"));
-	u8x8.setFont(u8x8_font_8x13_1x2_r);
+	//u8x8.print(F("Hallo"));
+	//u8x8.setFont(u8x8_font_8x13_1x2_r);
 #endif
 
 	if(freeMemory() < minFreeRAM)
