@@ -86,7 +86,7 @@ struct batteryDataStruct
 struct controllerDataStruct
 {
 	float vInArdu = 0.0;
-	uint8_t controlMode = POWER_CTRL;
+	//uint8_t controlMode = POWER_CTRL;
 	bool reverseDirection = false;
 };
 
@@ -129,11 +129,7 @@ undervoltageRegStruct undervoltageReg;
 odoStruct odometry;
 displayStruct display;
 
-
-
 int16_t minFreeRAM = 2000;		// initialisiert mit 2000. wird verringert wenn der echte freie RAM weniger ist
-
-
 
 uint8_t vescConnectionErrors = 0;
 
@@ -385,8 +381,8 @@ void interpretInputs()
 			pipapo = !pipapo;
 		}
 
-		// Switch between Power and Torque-Control-Mode
-		else if (switchRed_edges ==1 && switchGreen_edges == 3)
+		// Switch between Power and Torque-Control-Mode -> not used any more
+		/*else if (switchRed_edges ==1 && switchGreen_edges == 3)
 		{
 			if (controllerData.controlMode == POWER_CTRL)
 			{
@@ -396,7 +392,7 @@ void interpretInputs()
 			{
 				controllerData.controlMode = POWER_CTRL;
 			}
-		}
+		}*/
 		else if (switchRed_edges==1 && switchGreen_edges == 2)
 		{
 			// Toggle Headlight
@@ -941,11 +937,12 @@ void refreshu8x8Display()
 
 	// DEBUG Display 1
 	case 2:
+		u8x8.setFont(u8x8_font_8x13_1x2_r);
 		if(display.RowCounter == 0)
 		{
+
 			  u8x8.home();
-			  u8x8.clearLine(0);
-			  u8x8.clearLine(1);
+
 			  // Reset-Auswertung:
 			  if (resetFlagRegister & _BV(EXTRF))
 				{
@@ -970,37 +967,48 @@ void refreshu8x8Display()
 			  //Bit 1 � EXTRF: External Reset Flag
 			  //Bit 2 � BORF: Brown-out Reset Flag
 			  //Bit 3 � WDRF: Watchdog System Reset Flag
-
-			  //u8x8.print(resetFlagRegister);
 		}
 
 		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
-			  u8x8.clearLine(2);
-			  u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
 			  u8x8.print(F("Con-Errs: "));
+			  if(vescConnectionErrors < 10)
+			  {
+				  u8x8.print(" ");
+			  }
 			  u8x8.print(vescConnectionErrors);
 
 		}
 		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
-			  u8x8.clearLine(4);
-			  u8x8.clearLine(5);
 			  u8x8.setCursor(0,4);
-
 			  u8x8.print(F("RAM: "));
+			  if(minFreeRAM < 100)
+			  {
+				  u8x8.print(" ");
+				  if(minFreeRAM < 10)
+				  {
+					  u8x8.print(" ");
+				  }
+			  }
 			  u8x8.print(minFreeRAM);
 		}
 		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
-			  u8x8.clearLine(6);
-			  u8x8.clearLine(7);
 			  u8x8.setCursor(0,6);
 			  u8x8.print(F("PAS: "));
+			  if(pasData.pas_factor < 100)
+			  {
+				u8x8.print(" ");
+				if(pasData.pas_factor < 10)
+				{
+					u8x8.print(" ");
+				}
+			  }
 			  u8x8.print(pasData.pas_factor);
 			  if(pasData.pedaling)
 			  {
@@ -1024,9 +1032,6 @@ void refreshu8x8Display()
 
 		else if (display.RowCounter == 1)
 		{
-			  // Zeile 2:
-			  //u8x8.clearLine(2);
-			  //u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
 			  // 6 Zeichen
 			  u8x8.print(F("max: "));
@@ -1065,10 +1070,10 @@ void refreshu8x8Display()
 		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
-			  u8x8.clearLine(0);
-			  u8x8.clearLine(1);
 			  // 6 Zeichen
 			  u8x8.print(F("Trip: "));
+			  if(odometry.kmTripMotor < 10)
+			  u8x8.print(" ");
 			  u8x8.print(odometry.kmTripMotor);
 			  u8x8.print(F(" km "));
 		}
@@ -1076,17 +1081,23 @@ void refreshu8x8Display()
 		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
-			  u8x8.clearLine(2);
-			  u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
 			  uint16_t temp_time = odometry.minutesTrip/60;
 			  temp_time = temp_time % 24;
+			  if(temp_time < 10)
+			  {
+				  u8x8.print(" ");
+			  }
 			  u8x8.print(temp_time);
 			  u8x8.print(F("h "));
 			  temp_time = (odometry.minutesTrip) % (60);
 			  if(temp_time < 10)
 			  {
 				  u8x8.print(0);
+			  }
+			  if(temp_time < 10)
+			  {
+				  u8x8.print(" ");
 			  }
 			  u8x8.print(temp_time);
 			  u8x8.print(F("m "));
@@ -1095,12 +1106,14 @@ void refreshu8x8Display()
 		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
-			  u8x8.clearLine(4);
-			  u8x8.clearLine(5);
 			  u8x8.setCursor(0,4);
 			  float temp = vescValues.watt_hours;
 			  if(temp <= 100.0)
 			  {
+				  if(temp < 10.0)
+				  {
+					  u8x8.print(" ");
+				  }
 				  u8x8.print(temp);
 				  u8x8.print(F(" Wh "));
 			  }
@@ -1114,9 +1127,11 @@ void refreshu8x8Display()
 		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
-			  u8x8.clearLine(6);
-			  u8x8.clearLine(7);
 			  u8x8.setCursor(0,6);
+			  if(vescValues.ampHours < 10.0)
+			  {
+				  u8x8.print(" ");
+			  }
 			  u8x8.print(vescValues.ampHours);
 			  u8x8.print(F(" Ah"));
 		}
@@ -1127,8 +1142,6 @@ void refreshu8x8Display()
 		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
-			  u8x8.clearLine(0);
-			  u8x8.clearLine(1);
 			  u8x8.print(F("ODO: "));
 			  u8x8.print(odometry.kmOverallMotor + odometry.kmTripMotor);
 			  u8x8.print(F(" km "));
@@ -1166,12 +1179,14 @@ void refreshu8x8Display()
 		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
-			  u8x8.clearLine(4);
-			  u8x8.clearLine(5);
 			  u8x8.setCursor(0,4);
 			  float temp = odometry.wattHoursOverall + vescValues.watt_hours;
 			  if(temp <= 100.0)
 			  {
+				  if(temp < 10.0)
+				  {
+					  u8x8.print(" ");
+				  }
 				  u8x8.print(temp);
 				  u8x8.print(F(" Wh "));
 			  }
@@ -1452,59 +1467,37 @@ void CtrlLoop()
 
 		  if(pasData.pedaling == true)
 		  {
-			  notPedalingCounter = 0;
+			notPedalingCounter = 0;
 
-			if (controllerData.controlMode == TORQUE_CTRL)
+
+			temprpm = vescValues.rpm;
+			if(controllerData.reverseDirection == true)
 			{
-				switch (throttleControl.aktStufe)
-				{
-					case 0: throttleControl.current_next = 0.0;
-					break;
-					case 1: throttleControl.current_next = STUFE1_I;
-					break;
-					case 2: throttleControl.current_next = STUFE2_I;
-					break;
-					case 3: throttleControl.current_next = STUFE3_I;
-					break;
-					case 4: throttleControl.current_next = STUFE4_I;
-					break;
-					case 5: throttleControl.current_next = STUFE5_I;
-					break;
-					default: throttleControl.current_next = 0.0;
-					break;
-				}
+				temprpm = -1 * temprpm;
 			}
-			else if (controllerData.controlMode == POWER_CTRL)
+
+			// set to one if zero or (small) negative values occur
+			if(temprpm <= 0 && temprpm > -500)
 			{
-					temprpm = vescValues.rpm;
-					if(controllerData.reverseDirection == true)
-					{
-						temprpm = -1 * temprpm;
-					}
+				temprpm = 1;
+			}
 
-					// set to one if zero or (small) negative values occur
-					if(temprpm <= 0 && temprpm > -500)
-					{
-						temprpm = 1;
-					}
-
-				switch(throttleControl.aktStufe)
-				{
-					case 0: throttleControl.current_next = 0.0;
-					break;
-					case 1: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE1_P/temprpm;
-					break;
-					case 2: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE2_P/temprpm;
-					break;
-					case 3: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE3_P/temprpm;
-					break;
-					case 4: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE4_P/temprpm;
-					break;
-					case 5: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE5_P/temprpm;
-					break;
-					default: throttleControl.current_next = 0.0;
-					break;
-				}
+			switch(throttleControl.aktStufe)
+			{
+				case 0: throttleControl.current_next = 0.0;
+				break;
+				case 1: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE1_P/temprpm;
+				break;
+				case 2: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE2_P/temprpm;
+				break;
+				case 3: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE3_P/temprpm;
+				break;
+				case 4: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE4_P/temprpm;
+				break;
+				case 5: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE5_P/temprpm;
+				break;
+				default: throttleControl.current_next = 0.0;
+				break;
 			}
 
 			//Speed-Limit:

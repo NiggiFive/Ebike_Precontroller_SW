@@ -17,11 +17,6 @@
 
 //#define UNDERVOLTAGE_LIMIT_BY_VESC
 
-#define TORQUE_CTRL     1     //Current-Control (=fixed Torque-Steps)
-#define POWER_CTRL      2     // Power-Control     (= fixed Power-Steps, torque descreases with speed)
-// 3: Voltage-Control (only recommended for cheap-china-controllers )
-#define CTRL_MODE   POWER_CTRL
-
 // Reverse Up/Down-Buttons
 //#define REVERSE_BUTTONS
 
@@ -108,13 +103,6 @@
 #define TASTER_TIME_WINDOW 500
 
 #define ANZAHL_STUFEN	5
-
-// Strom-Stufen fuer VESC
-#define STUFE5_I 30
-#define STUFE4_I 30		// -> 30A schiebt schon krass
-#define STUFE3_I 20
-#define STUFE2_I 12
-#define STUFE1_I 6 		// 4A war ziemlich wenig
 
 // Power-Modes for VESC:
 #define STUFE5_P 500
