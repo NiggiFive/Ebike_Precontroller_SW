@@ -28,7 +28,7 @@
 
 // 1 for first Version
 // 2 for 2nd version
-#define HW_VERSION 	1
+#define HW_VERSION 	2
 
 // Motor Data
 //Anzahl Polpaare
@@ -83,6 +83,9 @@
 #define BAT6S9S_GRENZE      26.0
 #define BAT3S6S_GRENZE      15.0
 #define NOBAT_VOLTAGE       7.5
+
+// Resistance of Wiring in Ohms
+#define WIRING_RESISTANCE   0.015
 
 // Werte fuer Pedalsensierung:
 #define DOUBLE_HALL	0			// 1 for Double-Hall-Sensor, 0 for non-double-Hall

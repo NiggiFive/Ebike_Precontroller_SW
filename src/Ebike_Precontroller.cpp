@@ -77,6 +77,7 @@ struct batteryDataStruct
 {
 	uint8_t numberOfCells = 9;
 	float vBatArdu = 0.0;
+	float vBatCorrected = 0.0;
 	float avgCellVolt = 0.0;
 	uint8_t SOC = 0;
 	int16_t batteryPower = 0.0;
@@ -120,6 +121,7 @@ struct displayStruct
 {
 	uint8_t RowCounter = 0;
 	uint8_t displayMode = 0;
+	bool changeDisplayFlag = false;
 };
 
 speedRegStruct speedReg;
@@ -384,14 +386,6 @@ void interpretInputs()
 		// Switch between Power and Torque-Control-Mode -> not used any more
 		/*else if (switchRed_edges ==1 && switchGreen_edges == 3)
 		{
-			if (controllerData.controlMode == POWER_CTRL)
-			{
-				controllerData.controlMode = TORQUE_CTRL;
-			}
-			else
-			{
-				controllerData.controlMode = POWER_CTRL;
-			}
 		}*/
 		else if (switchRed_edges==1 && switchGreen_edges == 2)
 		{
@@ -402,14 +396,7 @@ void interpretInputs()
 		// Change Display-Mode
 		else if (switchRed_edges==1 && switchGreen_edges ==1)
 		{
-			#ifdef DISPLAY_CONNECTED
-			u8x8.clearDisplay();
-			#endif
-			display.displayMode++;
-			if(display.displayMode >=DISPLAY_MODI)
-			{
-				display.displayMode = 0;
-			}
+			display.changeDisplayFlag = true;
 		}
 
 		// Reset ODO-Data
@@ -506,7 +493,7 @@ void calculateSOC()
 		}
 		else
 		{
-			batteryData.avgCellVolt = vescValues.inpVoltage/batteryData.numberOfCells;
+			batteryData.avgCellVolt = batteryData.vBatCorrected/batteryData.numberOfCells;
 		}
 	}
 	else
@@ -624,6 +611,7 @@ void setThrottlePWM()
 
 void undervoltageRegulator()
 {
+	batteryData.vBatCorrected = vescValues.inpVoltage + WIRING_RESISTANCE * vescValues.avgInputCurrent;
 	float regOut;
 	if(vesc_connected)
 	{
@@ -652,6 +640,17 @@ void undervoltageRegulator()
 #ifdef DISPLAY_CONNECTED
 void refreshu8x8Display()
 {
+	if(display.changeDisplayFlag)
+	{
+		display.changeDisplayFlag = false;
+		u8x8.clearDisplay();
+		display.displayMode++;
+		display.RowCounter = 0;
+		if(display.displayMode >=DISPLAY_MODI)
+		{
+			display.displayMode = 0;
+		}
+	}
 	uint32_t tempTime = millis();
 	switch (display.displayMode)
 	{
@@ -659,6 +658,7 @@ void refreshu8x8Display()
 	case 0:
 	if (display.RowCounter == 0)
 	{
+		//Geschwindigkeit
 		u8x8.setCursor(1,0);
 		u8x8.setFont(u8x8_font_courB18_2x3_r);
 		if((int)speedReg.velocity < 10)
@@ -666,6 +666,9 @@ void refreshu8x8Display()
 			u8x8.print(F(" "));
 		}
 		u8x8.print((int)speedReg.velocity);
+	}
+	else if (display.RowCounter == 1)
+	{
 		u8x8.setFont(u8x8_font_8x13_1x2_r);
 		u8x8.print(F(" km/h "));
 		u8x8.setCursor(13,0);
@@ -674,36 +677,39 @@ void refreshu8x8Display()
 		u8x8.print(throttleControl.aktStufe);
 	}
 
-	else if (display.RowCounter ==1)
+	else if (display.RowCounter == 2)
 	{
-				u8x8.setCursor(1, 3);
+		// SOC
+		u8x8.setCursor(1, 3);
 
-	if(batteryData.SOC < 100)
-	{
-		u8x8.print(" ");
-		if(batteryData.SOC == 0)
+		if(batteryData.SOC < 100)
 		{
 			u8x8.print(" ");
+			if(batteryData.SOC == 0)
+			{
+				u8x8.print(" ");
+			}
 		}
-	}
-	u8x8.print(batteryData.SOC);
-	u8x8.print("%");
+		u8x8.print(batteryData.SOC);
+		u8x8.print("%");
 	}
 
-	else if (display.RowCounter == 2)
+	else if (display.RowCounter == 3)
 	{
 		u8x8.setFont(u8x8_font_8x13_1x2_r);	
 		u8x8.setCursor(0,6);
 		if(vesc_connected)
 		{
-			u8x8.print((int)vescValues.inpVoltage);
+			u8x8.print((int)batteryData.vBatCorrected);
 		}
 		else
 		{
 			u8x8.print((int)batteryData.vBatArdu);
 		}
-		u8x8.print("V");
-
+		u8x8.print("V ");
+	}
+	else if (display.RowCounter == 4)
+	{
         u8x8.setCursor(4,6);
 		if(batteryData.numberOfCells <=9)
 		{
@@ -711,7 +717,9 @@ void refreshu8x8Display()
 		}
 		u8x8.print(batteryData.numberOfCells);
 		u8x8.print(F("s"));
-
+	}
+	else if (display.RowCounter == 5)
+	{
 		u8x8.setCursor(8,6);
 		if(batteryData.batteryPower < 100.0)
 		{
@@ -722,7 +730,7 @@ void refreshu8x8Display()
 			}
 		}
 		u8x8.print(batteryData.batteryPower);
-		u8x8.print(F(" W"));
+-       u8x8.print(F(" W"));
 	}
 	break;
 
@@ -732,11 +740,14 @@ void refreshu8x8Display()
 			u8x8.setFont(u8x8_font_8x13_1x2_r);
 			u8x8.setCursor(1,0);
 			u8x8.print(F("Imot:"));
+		}
+		else if (display.RowCounter == 1)
+		{
 			u8x8.setCursor(8,0);
 			u8x8.print(F("Ibat:"));
 		}
 
-		else if (display.RowCounter == 1)
+		else if (display.RowCounter == 2)
 		{
 			u8x8.setFont(u8x8_font_courB18_2x3_r);
 			u8x8.setCursor(1,2);
@@ -746,6 +757,9 @@ void refreshu8x8Display()
 			{
 				u8x8.print(" ");
 			}
+		}
+		else if (display.RowCounter == 3)
+		{
 			u8x8.setCursor(8,2);
 			u8x8.print((int)vescValues.avgInputCurrent);
 			u8x8.print("A");
@@ -754,7 +768,7 @@ void refreshu8x8Display()
 				u8x8.print(" ");
 			}
 		}
-		else if (display.RowCounter == 2)
+		else if (display.RowCounter == 4)
 		{
 			u8x8.setFont(u8x8_font_courB18_2x3_r);
 			u8x8.setCursor(4,5);
@@ -763,177 +777,6 @@ void refreshu8x8Display()
 			u8x8.print(F(" deg"));
 		}
 		break;
-
-/*		if(display.RowCounter == 0)
-		{
-			  u8x8.home();
-			  //u8x8.clearLine(0);
-			  //u8x8.clearLine(1);
-			  if(vesc_connected)
-			  {
-				  // 2 Zeichen
-				  u8x8.print((int)vescValues.inpVoltage);
-			  }
-			  else
-			  {
-				  u8x8.print((int)batteryData.vBatArdu);
-			  }
-			  //3 Zeichen
-			  u8x8.print(F(" V "));
-			  // 1-2 Zeichen
-			  u8x8.print(batteryData.numberOfCells);
-			  // 3 Zeichen
-			  if(batteryData.numberOfCells <= 9)
-			  {
-			  	u8x8.print(F("s  "));
-			  }
-			  else
-			  {
-			  	u8x8.print(F("s "));
-			  }
-
-			  //SOC Ausgeben
-			  // 2-3 Zeichen
-			  u8x8.print(batteryData.SOC);
-			  // 3 Zeichen
-			  if(batteryData.SOC >= 100)
-			  {
-			  	u8x8.print(F(" %"));
-			  }
-			  else
-			  {
-				u8x8.print(F(" % "));
-			  }
-
-		}
-		else if (display.RowCounter == 1)
-		{
-			  // Zeile 2:
-			  //u8x8.clearLine(2);
-			  //u8x8.clearLine(3);
-			  u8x8.setCursor(0,2);
-			  // 1-2 Zeichen
-			  u8x8.print((int)speedReg.velocity);
-			  // 8 Zeichen
-			  u8x8.print(F(" km/h   "));
-			  if(controllerData.controlMode == POWER_CTRL)
-			  {
-				  //5 Zeichen
-				  u8x8.print(F("PWR  "));
-			  }
-			  else
-			  {
-				  u8x8.print(F("TRQ  "));
-			  }
-		}
-		else if (display.RowCounter == 2)
-		{
-			  //Zeile 3:
-			  //u8x8.clearLine(4);
-			  //u8x8.clearLine(5);
-			  u8x8.setCursor(0,4);
-			  // 1-3 Zeichen
-			  u8x8.print(batteryData.batteryPower);
-			  // 5 Zeichen
-			  u8x8.print(F(" W   "));
-			  // 5 Zeichen
-			  u8x8.print(controllerData.vInArdu);
-			  // 3 Zeichen
-			  u8x8.print(F("V  "));
-		}
-		else if (display.RowCounter == 3)
-		{
-			  //Zeile 4:
-			  //u8x8.clearLine(6);
-			  //u8x8.clearLine(7);
-			  u8x8.setCursor(0,6);
-			  // 6 Zeichen
-			  u8x8.print(F("Stufe "));
-			  // 1 Zeichen
-			  u8x8.print(throttleControl.aktStufe);
-			  if(pasData.pedaling)
-			  {
-				  // 6 Zeichen
-				  u8x8.print(F("   P  "));
-			  }
-			  else
-			  {
-				  u8x8.print(F("      "));
-			  }
-		}
-		break;*/
-
-/*	case 1:
-		if(display.RowCounter == 0)
-		{
-			  u8x8.home();
-
-			  if(vesc_connected == true)
-			  {
-			  	u8x8.print(F("VESC: "));
-				u8x8.print((int)vescValues.temp_mos);
-			    u8x8.print(F(" deg  "));
-			  }
-			  else
-			  {
-				u8x8.clearLine(0);
-			    u8x8.clearLine(1);
-			  }
-		}
-		else if (display.RowCounter == 1)
-		{
-			  // Zeile 2:
-			  //u8x8.clearLine(2);
-			  //u8x8.clearLine(3);
-			  u8x8.setCursor(0,2);
-			  // 7 Zeichen
-			  u8x8.print(F("Imot = "));
-			  // 1-2 Zeichen
-			  u8x8.print((int)vescValues.avgMotorCurrent);
-			  //5 Zeichen
-			  u8x8.print(F(" A   "));
-		}
-		else if (display.RowCounter == 2)
-		{
-			  //Zeile 3:
-			  //u8x8.clearLine(4);
-			  //u8x8.clearLine(5);
-			  u8x8.setCursor(0,4);
-			  // 7 Zeichen
-			  u8x8.print(F("Ibat = "));
-			  //1-2 Zeichen
-			  u8x8.print((int)vescValues.avgInputCurrent);
-			  // 5 Zeichen
-			  u8x8.print(F(" A   "));
-
-		}
-		else if (display.RowCounter == 3)
-		{
-			  //Zeile 4:
-			  //u8x8.clearLine(6);
-			  //u8x8.clearLine(7);
-			  u8x8.setCursor(0,6);
-//			  u8x8.print(vescValues.rpm);
-//			  u8x8.print(F(" ERPM "));
-			// 1-3 Zeichen
-			  u8x8.print(batteryData.batteryPower);
-			  // 4 Zeichen
-			  u8x8.print(F(" W  "));
-
-			if(controllerData.reverseDirection == true)
-			{
-				// 6 Zeichen
-				u8x8.print(F("Rev.  "));
-			}
-			else
-			{
-				// 6 Zeichen
-				u8x8.print(F("Fwd.  "));
-			}
-
-		}
-		break;*/
-
 
 	// DEBUG Display 1
 	case 2:
@@ -1221,7 +1064,7 @@ void refreshu8x8Display()
 	default: break;
 	}
 
-	  if(display.RowCounter < 3)
+	  if(display.RowCounter < 5)
 	  {
 		  display.RowCounter++;
 
@@ -1311,13 +1154,10 @@ void setup()
 
     u8x8.setFont(u8x8_font_courB18_2x3_r);
     u8x8.home();
-	//u8x8.setBusClock(200000);
     u8x8.setCursor(0,2);
     //u8x8.setFont(u8x8_font_8x13_1x2_r);
 	//u8x8.setFont(u8x8_font_profont29_2x3_r);
 	//u8x8.setFont(u8x8_font_inb33_3x6_r);
-    //u8x8.print(F("Warte auf VESC"));
-	//u8x8.print(F("Hallo"));
 	//u8x8.setFont(u8x8_font_8x13_1x2_r);
 #endif
 
@@ -1390,8 +1230,7 @@ void setup()
 		#ifdef DISPLAY_CONNECTED
 			u8x8.clearDisplay();
 			u8x8.home();
-			u8x8.println(F("VESC not found"));
-	    	u8x8.print(F("PWM-Modus aktiv"));
+	    	u8x8.print(F("PWM-Mode"));
 			delay(1000);
 			u8x8.clear();
 		#endif    
