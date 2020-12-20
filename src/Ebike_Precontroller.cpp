@@ -120,8 +120,9 @@ struct odoStruct
 struct displayStruct
 {
 	uint8_t RowCounter = 0;
-	uint8_t displayMode = 0;
+	uint8_t displayScreen = 0;
 	bool changeDisplayFlag = false;
+	bool printedFlag = false;
 };
 
 speedRegStruct speedReg;
@@ -643,16 +644,17 @@ void refreshu8x8Display()
 	if(display.changeDisplayFlag)
 	{
 		display.changeDisplayFlag = false;
+		display.printedFlag = false;
 		u8x8.clearDisplay();
-		display.displayMode++;
+		display.displayScreen++;
 		display.RowCounter = 0;
-		if(display.displayMode >=DISPLAY_MODI)
+		if(display.displayScreen >=DISPLAY_SCREENS)
 		{
-			display.displayMode = 0;
+			display.displayScreen = 0;
 		}
 	}
 	uint32_t tempTime = millis();
-	switch (display.displayMode)
+	switch (display.displayScreen)
 	{
 	// Home-Display
 	case 0:
@@ -669,10 +671,13 @@ void refreshu8x8Display()
 	}
 	else if (display.RowCounter == 1)
 	{
-		u8x8.setFont(u8x8_font_8x13_1x2_r);
-		u8x8.print(F(" km/h "));
-		u8x8.setCursor(13,0);
+		if(display.printedFlag == false)
+		{
+			u8x8.setFont(u8x8_font_8x13_1x2_r);
+			u8x8.print(F(" km/h "));
+		}
 
+		u8x8.setCursor(13,0);
 		u8x8.setFont(u8x8_font_courB18_2x3_r);
 		u8x8.print(throttleControl.aktStufe);
 	}
@@ -691,7 +696,10 @@ void refreshu8x8Display()
 			}
 		}
 		u8x8.print(batteryData.SOC);
-		u8x8.print("%");
+		if(display.printedFlag == false)
+		{
+			u8x8.print("%");
+		}
 	}
 
 	else if (display.RowCounter == 3)
@@ -706,7 +714,10 @@ void refreshu8x8Display()
 		{
 			u8x8.print((int)batteryData.vBatArdu);
 		}
-		u8x8.print("V ");
+		if(display.printedFlag == false)
+		{
+			u8x8.print("V ");
+		}
 	}
 	else if (display.RowCounter == 4)
 	{
@@ -716,7 +727,12 @@ void refreshu8x8Display()
 			u8x8.print(" ");
 		}
 		u8x8.print(batteryData.numberOfCells);
-		u8x8.print(F("s"));
+
+		if(display.printedFlag == false)
+		{
+			u8x8.print(F("s"));
+		}
+
 	}
 	else if (display.RowCounter == 5)
 	{
@@ -730,21 +746,33 @@ void refreshu8x8Display()
 			}
 		}
 		u8x8.print(batteryData.batteryPower);
--       u8x8.print(F(" W"));
+		if(display.printedFlag == false)
+		{
+-       	u8x8.print(F(" W"));
+		}
+		display.printedFlag = true;
 	}
 	break;
 
 	case 1:
 		if (display.RowCounter == 0)
 		{
-			u8x8.setFont(u8x8_font_8x13_1x2_r);
-			u8x8.setCursor(1,0);
-			u8x8.print(F("Imot:"));
+			if(display.printedFlag == false)
+			{
+				u8x8.setFont(u8x8_font_8x13_1x2_r);
+				u8x8.setCursor(1,0);
+				u8x8.print(F("Imot:"));
+			}
 		}
 		else if (display.RowCounter == 1)
 		{
-			u8x8.setCursor(8,0);
-			u8x8.print(F("Ibat:"));
+			if(display.printedFlag == false)
+			{
+				u8x8.setFont(u8x8_font_8x13_1x2_r);
+				u8x8.setCursor(8,0);
+				u8x8.print(F("Ibat:"));
+			}
+
 		}
 
 		else if (display.RowCounter == 2)
@@ -773,8 +801,12 @@ void refreshu8x8Display()
 			u8x8.setFont(u8x8_font_courB18_2x3_r);
 			u8x8.setCursor(4,5);
 			u8x8.print((int)vescValues.temp_mos);
-			u8x8.setFont(u8x8_font_8x13_1x2_r);
-			u8x8.print(F(" deg"));
+			if(display.printedFlag == false)
+			{
+				u8x8.setFont(u8x8_font_8x13_1x2_r);
+				u8x8.print(F(" deg"));
+			}
+			display.printedFlag = true;
 		}
 		break;
 
@@ -783,7 +815,6 @@ void refreshu8x8Display()
 		u8x8.setFont(u8x8_font_8x13_1x2_r);
 		if(display.RowCounter == 0)
 		{
-
 			  u8x8.home();
 
 			  // Reset-Auswertung:
@@ -827,8 +858,12 @@ void refreshu8x8Display()
 		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
-			  u8x8.setCursor(0,4);
-			  u8x8.print(F("RAM: "));
+			  if(display.printedFlag == false)
+			  {
+				u8x8.setCursor(0,4);
+				u8x8.print(F("RAM: "));
+			  }
+				u8x8.setCursor(6,4);
 			  if(minFreeRAM < 100)
 			  {
 				  u8x8.print(" ");
@@ -842,8 +877,12 @@ void refreshu8x8Display()
 		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
-			  u8x8.setCursor(0,6);
-			  u8x8.print(F("PAS: "));
+			  if(display.printedFlag == false)
+			  {
+				u8x8.setCursor(0,6);
+				u8x8.print(F("PAS: "));
+			  }
+			u8x8.setCursor(6,6);
 			  if(pasData.pas_factor < 100)
 			  {
 				u8x8.print(" ");
@@ -865,46 +904,72 @@ void refreshu8x8Display()
 		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
-			  u8x8.clearLine(0);
-			  u8x8.clearLine(1);
+			  //u8x8.clearLine(0);
+			  //u8x8.clearLine(1);
 			  // 10 Zeichen
-			  u8x8.print(F("Ctrl: "));
-			  u8x8.print(CtrlLoopTime);
-			  u8x8.print(F("ms"));
+			  if(display.printedFlag == false)
+			  {
+			  	u8x8.print(F("Ctrl: "));
+			  }
+			u8x8.setCursor(7,0);
+			u8x8.print(CtrlLoopTime);
+			if(display.printedFlag == false)
+			{
+			  	u8x8.print(F("ms"));
+			}
+
 		}
 
 		else if (display.RowCounter == 1)
 		{
 			  u8x8.setCursor(0,2);
 			  // 6 Zeichen
-			  u8x8.print(F("max: "));
-			  // 1-2 Zeichen
-			  u8x8.print(longestCtrlLoopTime);
-			  // 5 Zeichen
-			  u8x8.print(F("ms   "));
+			  if(display.printedFlag == false)
+			 {
+				u8x8.print(F("max: "));
+			 }
 
+			  // 1-2 Zeichen
+			  u8x8.setCursor(6,2);
+			  u8x8.print(longestCtrlLoopTime);
+			  if(display.printedFlag == false)
+			  {
+			  	u8x8.print(F("ms"));
+			  }
 		}
 		else if (display.RowCounter == 2)
 		{
 			  //Zeile 3:
-			  u8x8.clearLine(4);
-			  u8x8.clearLine(5);
-			  u8x8.setCursor(0,4);
-			  u8x8.print(F("Disp: "));
-			  u8x8.print(DispWrtTime);
-			  u8x8.print(F("ms"));
+			  if(display.printedFlag == false)
+			  {
+				u8x8.setCursor(0,4);
+				u8x8.print(F("Disp: "));
+			  }
+			u8x8.setCursor(7,4);
+			u8x8.print(DispWrtTime);
+			if(display.printedFlag == false)
+			{
+				u8x8.print(F("ms"));
+			}
+
 		}
 		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
-			  u8x8.clearLine(6);
-			  u8x8.clearLine(7);
-			  u8x8.setCursor(0,6);
-			  u8x8.print(F("max: "));
+			  if(display.printedFlag == false)
+			  {
+				u8x8.setCursor(0,6);
+				u8x8.print(F("max: "));
+			  }
+			u8x8.setCursor(6,6);
 			  // 1-2 Zeichen
 			  u8x8.print(longestDispWrtTime);
 			  // 5 Zeichen
-			  u8x8.print(F("ms   "));
+			  if(display.printedFlag == false)
+			  {
+			  	u8x8.print(F("ms"));
+			  }
+			  display.printedFlag = true;
 		}
 		break;
 
@@ -912,38 +977,40 @@ void refreshu8x8Display()
 	case 4:
 		if(display.RowCounter == 0)
 		{
-			  u8x8.home();
-			  // 6 Zeichen
-			  u8x8.print(F("Trip: "));
-			  if(odometry.kmTripMotor < 10)
-			  u8x8.print(" ");
-			  u8x8.print(odometry.kmTripMotor);
-			  u8x8.print(F(" km "));
+			if(display.printedFlag == false)
+			{
+				u8x8.home();
+				u8x8.print(F("Trip: "));
+			}
+			u8x8.setCursor(7,0);
+			if(odometry.kmTripMotor < 10)
+			u8x8.print(" ");
+			u8x8.print(odometry.kmTripMotor);
+			if(display.printedFlag == false)
+			{
+			 	u8x8.print(F(" km "));
+			}
 		}
 
 		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
-			  u8x8.setCursor(0,2);
+			  u8x8.setCursor(1,2);
 			  uint16_t temp_time = odometry.minutesTrip/60;
-			  temp_time = temp_time % 24;
 			  if(temp_time < 10)
 			  {
-				  u8x8.print(" ");
+				  u8x8.print("0");
 			  }
 			  u8x8.print(temp_time);
-			  u8x8.print(F("h "));
+			  u8x8.print(F(":"));
 			  temp_time = (odometry.minutesTrip) % (60);
 			  if(temp_time < 10)
 			  {
-				  u8x8.print(0);
+				  u8x8.print("0");
 			  }
-			  if(temp_time < 10)
-			  {
-				  u8x8.print(" ");
-			  }
+		
 			  u8x8.print(temp_time);
-			  u8x8.print(F("m "));
+			  u8x8.print("h");
 		}
 
 		else if (display.RowCounter == 2)
@@ -977,6 +1044,7 @@ void refreshu8x8Display()
 			  }
 			  u8x8.print(vescValues.ampHours);
 			  u8x8.print(F(" Ah"));
+			  display.printedFlag = true;
 		}
 		break;
 
@@ -993,8 +1061,6 @@ void refreshu8x8Display()
 		else if (display.RowCounter == 1)
 		{
 			  // Zeile 2:
-			  u8x8.clearLine(2);
-			  u8x8.clearLine(3);
 			  u8x8.setCursor(0,2);
 			  uint16_t temp_time = (odometry.minutesOverall+odometry.minutesTrip)/(60*24);
 			  if(temp_time > 0)		// only Display days if min 1 passed
@@ -1009,14 +1075,14 @@ void refreshu8x8Display()
 				  u8x8.print(0);
 			  }
 			  u8x8.print(temp_time);
-			  u8x8.print(F("h "));
+			  u8x8.print(F(":"));
 			  temp_time = (odometry.minutesOverall+odometry.minutesTrip) % (60);
 			  if(temp_time < 10)
 			  {
 				  u8x8.print(0);
 			  }
 			  u8x8.print(temp_time);
-			  u8x8.print(F("m "));
+			  u8x8.print(F("h"));
 		}
 
 		else if (display.RowCounter == 2)
@@ -1031,12 +1097,18 @@ void refreshu8x8Display()
 					  u8x8.print(" ");
 				  }
 				  u8x8.print(temp);
-				  u8x8.print(F(" Wh "));
+				  if(display.printedFlag == false)
+				{
+				 	u8x8.print(F(" Wh "));
+				}
 			  }
 			  else
 			  {
 				  u8x8.print(temp/1000);
-				  u8x8.print(F(" kWh "));
+				  if(display.printedFlag == false)
+				  {
+				  	u8x8.print(F(" kWh "));
+				  }
 			  }
 
 		}
@@ -1046,15 +1118,7 @@ void refreshu8x8Display()
 			  u8x8.clearLine(6);
 			  u8x8.clearLine(7);
 			  u8x8.setCursor(0,6);
-			  if(odometry.ampHoursOverall < 100)
-			  {
-				  u8x8.print(odometry.ampHoursOverall + vescValues.ampHours);
-			  }
-			  else
-			  {
-				  u8x8.print((uint16_t)(odometry.ampHoursOverall + vescValues.ampHours));
-			  }
-			  u8x8.print(F(" Ah"));
+			  display.printedFlag = true;
 		}
 		break;
 
