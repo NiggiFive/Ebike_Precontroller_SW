@@ -12,6 +12,9 @@
 
 // Number of Modes the Display can show:
 #define DISPLAY_SCREENS	7
+	
+// 0 = always Update, 1 = dont update when motoring, 2 = dont update when motoring or pedaling
+#define DEFAULT_DISPLAYUPDATEMODE 0
 
 //#define SPEED_LIMIT_BY_VESC
 

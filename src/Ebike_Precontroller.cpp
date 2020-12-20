@@ -121,6 +121,9 @@ struct displayStruct
 {
 	uint8_t RowCounter = 0;
 	uint8_t displayScreen = 0;
+
+	// 0 = always Update, 1 = dont update when motoring, 2 = dont update when motoring or pedaling
+	uint8_t displayUpdateMode = DEFAULT_DISPLAYUPDATEMODE;
 	bool changeDisplayFlag = false;
 	bool printedFlag = false;
 };
@@ -384,10 +387,16 @@ void interpretInputs()
 			pipapo = !pipapo;
 		}
 
-		// Switch between Power and Torque-Control-Mode -> not used any more
-		/*else if (switchRed_edges ==1 && switchGreen_edges == 3)
+		// Switch between DisplayUpdate-Modi
+		else if (switchRed_edges ==1 && switchGreen_edges == 3)
 		{
-		}*/
+			display.displayUpdateMode++;
+			if(display.displayUpdateMode > 2)
+			{
+				display.displayUpdateMode = 0;
+			}
+		}
+
 		else if (switchRed_edges==1 && switchGreen_edges == 2)
 		{
 			// Toggle Headlight
@@ -660,6 +669,11 @@ void refreshu8x8Display()
 	case 0:
 	if (display.RowCounter == 0)
 	{
+		//displayUpdateMode
+		u8x8.setCursor(0,0);
+		u8x8.setFont(u8x8_font_8x13_1x2_r);
+		u8x8.print(display.displayUpdateMode);
+
 		//Geschwindigkeit
 		u8x8.setCursor(1,0);
 		u8x8.setFont(u8x8_font_courB18_2x3_r);
@@ -772,7 +786,6 @@ void refreshu8x8Display()
 				u8x8.setCursor(8,0);
 				u8x8.print(F("Ibat:"));
 			}
-
 		}
 
 		else if (display.RowCounter == 2)
@@ -904,9 +917,6 @@ void refreshu8x8Display()
 		if(display.RowCounter == 0)
 		{
 			  u8x8.home();
-			  //u8x8.clearLine(0);
-			  //u8x8.clearLine(1);
-			  // 10 Zeichen
 			  if(display.printedFlag == false)
 			  {
 			  	u8x8.print(F("Ctrl: "));
@@ -1528,13 +1538,19 @@ void loop() {
   }
 
 	// Write-Display-Routine
-  if ((millis()- lastDispLoop) > DISP_TIMER)
-  {
-	  lastDispLoop = millis();
-	#ifdef DISPLAY_CONNECTED
-	refreshu8x8Display();
-	#endif
-  }
+	if((display.displayUpdateMode == 0) 
+	|| (display.displayUpdateMode == 1 && (throttleControl.current_next == 0.0) && (throttleControl.current_now == 0.0)) 
+	|| (display.displayUpdateMode == 2 && (throttleControl.current_now == 0.0) && (pasData.pedaling == false)))
+	{
+		if ((millis()- lastDispLoop) > DISP_TIMER)
+		{
+			lastDispLoop = millis();
+			#ifdef DISPLAY_CONNECTED
+			refreshu8x8Display();
+			#endif
+		}
+	}
+
 
 	// ultra-langsame Routine
 	else if((millis() - lastUltraSlowLoop) > ULTRA_SLOW_TIMER)
