@@ -1132,7 +1132,12 @@ void refreshu8x8Display()
 		}
 		break;
 
-	case 6: u8x8.clearDisplay();
+	case 6: 
+		if(display.printedFlag == false)
+		{
+			u8x8.clearDisplay();
+			display.printedFlag = true;
+		}
 	break;
 
 	default: break;
@@ -1141,7 +1146,6 @@ void refreshu8x8Display()
 	  if(display.RowCounter < 5)
 	  {
 		  display.RowCounter++;
-
 	  }
 	  else
 	  {
@@ -1351,14 +1355,14 @@ void CtrlLoop()
 				{
 					regOut = 1.0;
 				}
-				else if (regOut < 0.0)
-				{
-					regOut = 0.0;
-				}
 
 				//PT1-Filterung des Reglerausgangs:
 				speedReg.vreg_out_int += (regOut - speedReg.vreg_out_filtered);
 				speedReg.vreg_out_filtered = speedReg.vreg_out_int / 8;
+				if(speedReg.vreg_out_filtered < 0.0)
+				{
+					speedReg.vreg_out_filtered = 0.0;
+				}
 			#else
 			  speedReg.vreg_out_filtered = 1.0;
 			#endif
@@ -1530,19 +1534,19 @@ void loop() {
 	}
 
 	// Controller - Routine
-  else if((millis() - lastCtrlLoop) > CTRL_TIMER)
-  {
+	else if((millis() - lastCtrlLoop) > CTRL_TIMER)
+    {
 		lastCtrlLoop = millis();
 	  	CtrlLoop();
 
-  }
+    }
 
-	// Write-Display-Routine
-	if((display.displayUpdateMode == 0) 
-	|| (display.displayUpdateMode == 1 && (throttleControl.current_next == 0.0) && (throttleControl.current_now == 0.0)) 
-	|| (display.displayUpdateMode == 2 && (throttleControl.current_now == 0.0) && (pasData.pedaling == false)))
+	if ((millis()- lastDispLoop) > DISP_TIMER)
 	{
-		if ((millis()- lastDispLoop) > DISP_TIMER)
+		// Write-Display-Routine
+		if((display.displayUpdateMode == 0) 
+		|| (display.displayUpdateMode == 1 && (throttleControl.current_next == 0.0) && (throttleControl.current_now == 0.0)) 
+		|| (display.displayUpdateMode == 2 && (throttleControl.current_now == 0.0) && (pasData.pedaling == false)))
 		{
 			lastDispLoop = millis();
 			#ifdef DISPLAY_CONNECTED
@@ -1550,7 +1554,6 @@ void loop() {
 			#endif
 		}
 	}
-
 
 	// ultra-langsame Routine
 	else if((millis() - lastUltraSlowLoop) > ULTRA_SLOW_TIMER)
