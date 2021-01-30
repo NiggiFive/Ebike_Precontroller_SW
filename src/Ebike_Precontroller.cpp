@@ -14,24 +14,34 @@
 bldcMeasure vescValues;	// RolingGeckos Version
 
 //Pins fuer Ein- und Ausgaenge
-#define INPUT_PAS 3
-#define INPUT_TASTER1 2
-#define INPUT_TASTER2 4		// -> Taster2 ueblicherweise fuer Licht?
+//#define INPUT_PAS 3
+#define INPUT_PAS 7
+//#define INPUT_TASTER1 2
+#define INPUT_TASTER1 A1
+//#define INPUT_TASTER2 4
+#define INPUT_TASTER2 A6
 
 #ifdef REVERSE_BUTTONS
-	#define INPUT_3W_SW_RED 6
-	#define INPUT_3W_SW_GREEN 7
+	//#define INPUT_3W_SW_RED 6
+	//#define INPUT_3W_SW_GREEN 7
+	#define INPUT_3W_SW_RED A10;
+	#define INPUT_3W_SW_GREEN A7
 #else
-	#define INPUT_3W_SW_RED 7
-	#define INPUT_3W_SW_GREEN 6
+	//#define INPUT_3W_SW_RED 7
+	//#define INPUT_3W_SW_GREEN 6
+	#define INPUT_3W_SW_RED A7
+	#define INPUT_3W_SW_GREEN A10
 #endif
 
 
 #define OUTPUT_THROTTLE 5
 #define OUTPUT_DISPLAY_SUPPLY 8
-#define OUTPUT_LIGHT 9
-#define INPUT_BATSENSE PIN_A6
-#define INPUT_VARDUSENSE PIN_A7
+//#define OUTPUT_LIGHT 9
+#define OUTPUT_LIGHT A9
+//#define INPUT_BATSENSE PIN_A6
+#define INPUT_BATSENSE A2
+//#define INPUT_VARDUSENSE PIN_A7
+#define INPUT_VARDUSENSE A3
 
 #define INPUT_THROTTLE PIN_A0
 
@@ -1166,12 +1176,15 @@ void setup()
 	//MCUSR = 0;
 
 	// Pin A4 als Ausgang einstellen (fuer I2C)
-	pinMode(PIN_A4, OUTPUT);
-	digitalWrite(PIN_A4, 0);
+	//pinMode(PIN_A4, OUTPUT);
+	//igitalWrite(PIN_A4, 0);
+	//fuer Pro Micro:
+	pinMode(2, OUTPUT);
+	digitalWrite(2, 0);
 
 	// Pin A1 ist die Versorgung für den Analog-Switch für die UART-Verbindung
-	pinMode(PIN_A1, OUTPUT);
-	digitalWrite(PIN_A1, 1);
+	//pinMode(PIN_A1, OUTPUT);
+	//digitalWrite(PIN_A1, 1);
 
 	//PAS-Sensor-Input:
 	pinMode(INPUT_PAS, INPUT_PULLUP);
@@ -1281,7 +1294,8 @@ void setup()
 	if(batteryData.numberOfCells > 0)
 	{
 		digitalWrite(OUTPUT_THROTTLE, 1);
-		Serial.begin(VESC_BAUDRATE);
+		//Serial.begin(VESC_BAUDRATE);
+		Serial1.begin(VESC_BAUDRATE);
 
 		// check connection to VESC until timout reached
 		uint32_t tempTime = millis();
@@ -1304,7 +1318,8 @@ void setup()
 	//wenn kein Vesc dran haengt serielle Schnittstelle beenden
 	if(vesc_connected == false)
 	{
-		Serial.end();
+		//Serial.end();
+		Serial1.end();
 		#ifdef DISPLAY_CONNECTED
 			u8x8.clearDisplay();
 			u8x8.home();
@@ -1378,8 +1393,10 @@ void CtrlLoop()
 		// restart Interface if Error occurred
 		if(vescErrorsTemp != vescConnectionErrors)
 		{
-			Serial.end();
-			Serial.begin(VESC_BAUDRATE);
+			//Serial.end();
+			//Serial.begin(VESC_BAUDRATE);
+			Serial1.end();
+			Serial1.begin(VESC_BAUDRATE);
 		}
 
 		  if(pasData.pedaling == true)

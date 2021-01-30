@@ -35,7 +35,8 @@ int ReceiveUartMessage(uint8_t* payloadReceived, int num) {
 	uint8_t messageReceived[256];
 	uint16_t lenPayload = 0;
 	HardwareSerial *serial;
-	serial=&Serial;
+	//serial=&Serial;
+	serial = &Serial1;
 	uint32_t timeout = millis() + 50; // Defining the timestamp for timeout (100ms before timeout)
 
 	while ( millis() < timeout && messageRead == false) {
@@ -155,7 +156,8 @@ int PackSendPayload(uint8_t* payload, int lenPay, int num) {
 #endif // DEBUG
 
 
-	HardwareSerial *serial=&Serial;
+	//HardwareSerial *serial=&Serial;
+	HardwareSerial *serial = &Serial1;
 
 	//Sending package
 	serial->write(messageSend, count);
