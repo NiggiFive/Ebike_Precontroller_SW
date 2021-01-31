@@ -14,39 +14,42 @@
 bldcMeasure vescValues;	// RolingGeckos Version
 
 //Pins fuer Ein- und Ausgaenge
-//#define INPUT_PAS 3
-#define INPUT_PAS 7
-//#define INPUT_TASTER1 2
-#define INPUT_TASTER1 A1
-//#define INPUT_TASTER2 4
-#define INPUT_TASTER2 A6
+#if HW_VERSION == 3
+	#define INPUT_PAS 7
+	#define INPUT_TASTER1 A1
+	#define INPUT_TASTER2 A6
+	#define OUTPUT_LIGHT A9
+	#define INPUT_VARDUSENSE A3
+	#define INPUT_BATSENSE A2
 
-#ifdef REVERSE_BUTTONS
-	//#define INPUT_3W_SW_RED 6
-	//#define INPUT_3W_SW_GREEN 7
-	#define INPUT_3W_SW_RED A10;
-	#define INPUT_3W_SW_GREEN A7
+	#ifdef REVERSE_BUTTONS
+		#define INPUT_3W_SW_RED A10;
+		#define INPUT_3W_SW_GREEN A7
+	#else
+		#define INPUT_3W_SW_RED A7
+		#define INPUT_3W_SW_GREEN A10
+	#endif
 #else
-	//#define INPUT_3W_SW_RED 7
-	//#define INPUT_3W_SW_GREEN 6
-	#define INPUT_3W_SW_RED A7
-	#define INPUT_3W_SW_GREEN A10
+	#define INPUT_PAS 3
+	#define INPUT_TASTER1 2
+	#define INPUT_TASTER2 4
+	#define OUTPUT_LIGHT 9
+	#define INPUT_VARDUSENSE PIN_A7
+	#define INPUT_BATSENSE PIN_A6
+	#define OUTPUT_DISPLAY_SUPPLY 8		// proMicro-Version: Display-Supply hardwired
+	#define LED 13						// Pin-No of LED on Arduino Nano
+
+	#ifdef REVERSE_BUTTONS
+		#define INPUT_3W_SW_RED 6
+		#define INPUT_3W_SW_GREEN 7
+	#else
+		#define INPUT_3W_SW_RED 7
+		#define INPUT_3W_SW_GREEN 6
+	#endif
 #endif
 
-
 #define OUTPUT_THROTTLE 5
-#define OUTPUT_DISPLAY_SUPPLY 8
-//#define OUTPUT_LIGHT 9
-#define OUTPUT_LIGHT A9
-//#define INPUT_BATSENSE PIN_A6
-#define INPUT_BATSENSE A2
-//#define INPUT_VARDUSENSE PIN_A7
-#define INPUT_VARDUSENSE A3
-
 #define INPUT_THROTTLE PIN_A0
-
-// Pin-Nummer der LED auf Arduino Nano
-#define LED 13
 
 #define SERIAL_MONITOR_BAUDRATE 9600
 

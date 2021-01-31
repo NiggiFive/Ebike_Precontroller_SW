@@ -31,7 +31,8 @@
 
 // 1 for first Version
 // 2 for 2nd version
-#define HW_VERSION 	2
+// 3 for Version with proMicro-Hardwiring
+#define HW_VERSION 	3
 
 // Motor Data
 //Anzahl Polpaare
@@ -40,7 +41,6 @@
 //Uebersetzungsverhaeltnis des Planetengetriebes (falls vorhanden, sonst 1)
 #define MOTOR_GEAR_RATIO 	4.42
 #define MOTOR_FLUX_LINKAGE  0.01276     //Voltseconds
-//#define PI                  3.14
 
 // Assume linear PSM with Ld=Lq
 #define TORQUE_PER_AMP              1.5*MOTOR_FLUX_LINKAGE      // Caution: "Electrical Torque" because Pole-Pairs are missing in formula!
@@ -61,7 +61,7 @@
 
 // Maximale Geschwindigkeit fuer Unterstuetzung
 #define MAX_SPEED_KMH 		27
-//Geschwindigkeit ab der der Strom zur�ckgenommen wird
+//Geschwindigkeit ab der der Strom zurueckgenommen wird
 #define VGRENZ				23
 #define MAX_RPM 			(MAX_SPEED_KMH*1000)/(RADUMFANG*60)
 #define MAX_ERPM			MAX_RPM*MOTOR_POLE_PAIRS*MOTOR_GEAR_RATIO
