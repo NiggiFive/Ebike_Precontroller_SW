@@ -97,7 +97,6 @@ struct batteryDataStruct
 struct controllerDataStruct
 {
 	float vInArdu = 0.0;
-	//uint8_t controlMode = POWER_CTRL;
 	bool reverseDirection = false;
 };
 
@@ -211,6 +210,7 @@ struct tasterStruct
 		uint16_t pas_factor_int = 0;
 		//uint16_t cadence = 0;
 		bool pedaling = false;
+		uint16_t kadenz = 0;
 	};
 
 	pasStruct pasData;
@@ -277,6 +277,7 @@ void pas_ISR()
 		{
 			pasData.pedaling = false;
 		}
+		pasData.kadenz = CONV_PAS_TIME_TO_CADENCE/pasData.pasTimeGesamt;
 	}
 	if(freeMemory() < minFreeRAM)
 	{
@@ -887,16 +888,20 @@ void refreshu8x8Display()
 				u8x8.print(F("RAM: "));
 			  }
 				u8x8.setCursor(6,4);
-			  if(minFreeRAM < 100)
-			  {
-				  u8x8.print(" ");
-				  if(minFreeRAM < 10)
-				  {
-					  u8x8.print(" ");
-				  }
-			  }
+				if(minFreeRAM < 1000)
+				{
+					u8x8.print(" ");
+					if(minFreeRAM < 100)
+			  		{
+				  		u8x8.print(" ");
+				  		if(minFreeRAM < 10)
+				  		{
+						  u8x8.print(" ");
+				  		}
+					}
+				}
 			  u8x8.print(minFreeRAM);
-		}
+			}
 		else if (display.RowCounter == 3)
 		{
 			  //Zeile 4:
@@ -906,19 +911,31 @@ void refreshu8x8Display()
 				u8x8.print(F("PAS: "));
 			  }
 			u8x8.setCursor(6,6);
-			  if(pasData.pas_factor < 100)
-			  {
-				u8x8.print(" ");
-				if(pasData.pas_factor < 10)
+			if(DOUBLE_HALL == false)
+			{
+				if(pasData.pas_factor < 100)
 				{
 					u8x8.print(" ");
+					if(pasData.pas_factor < 10)
+					{
+						u8x8.print(" ");
+					}
 				}
-			  }
-			  u8x8.print(pasData.pas_factor);
-			  if(pasData.pedaling)
-			  {
-				  u8x8.print(F(" P "));
-			  }
+				u8x8.print(pasData.pas_factor);
+			}
+			else
+			{
+				u8x8.print(pasData.kadenz);
+				u8x8.print(" ");
+			}
+			if(pasData.pedaling)
+			{
+				u8x8.print(F(" P "));
+			}
+			else
+			{
+				u8x8.print("   ");
+			}
 		}
 		break;
 
@@ -1171,6 +1188,8 @@ void refreshu8x8Display()
 
 void setup()
 {
+	//Serial.begin(9600);
+	//while (!Serial);
 	resetFlagRegister = MCUSR;
 	 // Clear all MCUSR registers immediately for 'next use'
 	//MCUSR = 0;
@@ -1330,7 +1349,7 @@ void setup()
 
 	}
 
-	wdt_enable(WDTO_2S);
+	//wdt_enable(WDTO_2S);
 }
 
 void CtrlLoop()
@@ -1533,6 +1552,7 @@ void loop() {
 		pasData.pedaling = false;
 		pasData.pas_factor = 0;
 		pasData.pas_factor_filtered = 0;
+		pasData.kadenz = 0;
 	}
 
 	// Schnelle Routine -> hier werden nur die Taster ausgelesen
@@ -1598,5 +1618,5 @@ void loop() {
 	{
 		minFreeRAM = freeMemory();
 	}
-	wdt_reset();
+	//wdt_reset();
 }

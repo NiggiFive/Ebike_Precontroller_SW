@@ -91,9 +91,9 @@
 #define WIRING_RESISTANCE   0.015
 
 // Werte fuer Pedalsensierung:
-#define DOUBLE_HALL	0			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
-#define PAS_MAGNETS 10			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12
-#define MIN_CADENCE	25			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
+#define DOUBLE_HALL	1			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
+#define PAS_MAGNETS 8			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12
+#define MIN_CADENCE	20			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
 
 #define CONV_PAS_TIME_TO_CADENCE 60000/PAS_MAGNETS
 
