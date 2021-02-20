@@ -21,9 +21,11 @@ bldcMeasure vescValues;	// RolingGeckos Version
 	#define OUTPUT_LIGHT A9
 	#define INPUT_VARDUSENSE A3
 	#define INPUT_BATSENSE A2
+	#define LED 17
+	#define LED2 30
 
 	#ifdef REVERSE_BUTTONS
-		#define INPUT_3W_SW_RED A10;
+		#define INPUT_3W_SW_RED A10
 		#define INPUT_3W_SW_GREEN A7
 	#else
 		#define INPUT_3W_SW_RED A7
@@ -71,7 +73,7 @@ bldcMeasure vescValues;	// RolingGeckos Version
 
 //Display Constructor
 #ifdef DISPLAY_CONNECTED
-U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(A5, A4);
+U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(A5, A4);		// not sure if the Pins are correct for ProMicro but it works)
 #endif
 
 uint16_t notPedalingCounter;
@@ -112,6 +114,7 @@ struct undervoltageRegStruct
 
 struct speedRegStruct
 {
+	float vreg_out_new = 0.0;
 	float vreg_out_int = 0.0;
 	float vreg_out_filtered = 0.0;
 	float velocity = 0.0;
@@ -159,7 +162,11 @@ bool pipapo = false;
 struct throttleControlStruct
 {
   int8_t aktStufe = DEFAULT_STUFE;
-  float current_next = 0.0;
+  float current_next_new = 0.0;
+  float current_next_up_int = 0.0;
+  float current_next_down_int = 0.0;
+  float current_next_up_filt = 0.0;
+  float current_next_down_filt = 0.0;
   float current_now = 0.0;
   float throttleVoltage = 0.0;
 };
@@ -1228,24 +1235,21 @@ void setup()
 	digitalWrite(OUTPUT_THROTTLE, 0);
 
 	//Turn on Display-Supply
+#if HW_VERSION == 2
 	pinMode(OUTPUT_DISPLAY_SUPPLY, OUTPUT);
-	if (HW_VERSION == 2)
-	{
-		// Display Versorgung h�ngt direkt an IO von Ardu
-		digitalWrite(OUTPUT_DISPLAY_SUPPLY, HIGH);
-	}
-	else if (HW_VERSION == 1)
-	{
-		// Display Versorgung wird mit PNP Highside geschaltet
-		digitalWrite(OUTPUT_DISPLAY_SUPPLY, LOW);
-	}
+	// Display Versorgung h�ngt direkt an IO von Ardu
+	digitalWrite(OUTPUT_DISPLAY_SUPPLY, HIGH);
+#elif HW_VERSION == 1
+	pinMode(OUTPUT_DISPLAY_SUPPLY, OUTPUT);
+	// Display Versorgung wird mit PNP Highside geschaltet
+	digitalWrite(OUTPUT_DISPLAY_SUPPLY, LOW);
+#endif
 
 	//Licht-Ausgang konfigurieren
 	pinMode(OUTPUT_LIGHT, OUTPUT);
 	//Turn on Headlight
 	digitalWrite(OUTPUT_LIGHT, HIGH);
 
-	//LED auf ArduinoNano Pin 13
 	pinMode(LED, OUTPUT);
 	digitalWrite(LED, LOW);
 
@@ -1315,9 +1319,11 @@ void setup()
 	// Enable Connection to VESC if Battery Connected
 	if(batteryData.numberOfCells > 0)
 	{
-		digitalWrite(OUTPUT_THROTTLE, 1);
-		//Serial.begin(VESC_BAUDRATE);
-		Serial1.begin(VESC_BAUDRATE);
+		#if HW_VERSION == 3
+			Serial1.begin(VESC_BAUDRATE);
+		#else
+			Serial.begin(VESC_BAUDRATE);
+		#endif
 
 		// check connection to VESC until timout reached
 		uint32_t tempTime = millis();
@@ -1340,8 +1346,11 @@ void setup()
 	//wenn kein Vesc dran haengt serielle Schnittstelle beenden
 	if(vesc_connected == false)
 	{
-		//Serial.end();
-		Serial1.end();
+		#if HW_VERSION == 3
+			Serial1.end();
+		#else
+			Serial.end();
+		#endif
 		#ifdef DISPLAY_CONNECTED
 			u8x8.clearDisplay();
 			u8x8.home();
@@ -1386,15 +1395,22 @@ void CtrlLoop()
 
 			// Speed-Limiting/Control (only necessary if VESC has no speed-limit)
 			#ifndef SPEED_LIMIT_BY_VESC
-				float regOut = 1.0-(float)((speedReg.velocity-VGRENZ)/(MAX_SPEED_KMH - VGRENZ));
-
-				if(regOut >1.0)
+			if(!pipapo)
+			{
+				speedReg.vreg_out_new = 1.0-(float)((speedReg.velocity-VGRENZ)/(VMAX - VGRENZ));
+			}
+			else
+			{
+				speedReg.vreg_out_new = 1.0-(float)((speedReg.velocity-VGRENZ2)/(VMAX2 - VGRENZ2));
+			}
+				
+				if(speedReg.vreg_out_new >1.0)
 				{
-					regOut = 1.0;
+					speedReg.vreg_out_new = 1.0;
 				}
 
 				//PT1-Filterung des Reglerausgangs:
-				speedReg.vreg_out_int += (regOut - speedReg.vreg_out_filtered);
+				speedReg.vreg_out_int += (speedReg.vreg_out_new - speedReg.vreg_out_filtered);
 				speedReg.vreg_out_filtered = speedReg.vreg_out_int / 8;
 				if(speedReg.vreg_out_filtered < 0.0)
 				{
@@ -1415,10 +1431,14 @@ void CtrlLoop()
 		// restart Interface if Error occurred
 		if(vescErrorsTemp != vescConnectionErrors)
 		{
-			//Serial.end();
-			//Serial.begin(VESC_BAUDRATE);
-			Serial1.end();
-			Serial1.begin(VESC_BAUDRATE);
+
+			#if HW_VERSION == 3
+				Serial1.end();
+				Serial1.begin(VESC_BAUDRATE);
+			#else
+				Serial.end();
+				Serial.begin(VESC_BAUDRATE);
+			#endif
 		}
 
 		  if(pasData.pedaling == true)
@@ -1433,6 +1453,7 @@ void CtrlLoop()
 			}
 
 			// set to one if zero or (small) negative values occur
+			// (otherwise Motor spins sporadically in reverse direction at start which causes massive delayed pedal-response)
 			if(temprpm <= 0 && temprpm > -500)
 			{
 				temprpm = 1;
@@ -1440,73 +1461,96 @@ void CtrlLoop()
 
 			switch(throttleControl.aktStufe)
 			{
-				case 0: throttleControl.current_next = 0.0;
+				case 0: throttleControl.current_next_new = 0.0;
 				break;
-				case 1: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE1_P/temprpm;
+				case 1: throttleControl.current_next_new = AMPS_PER_WATTS_AND_ERPM*STUFE1_P/temprpm;
 				break;
-				case 2: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE2_P/temprpm;
+				case 2: throttleControl.current_next_new = AMPS_PER_WATTS_AND_ERPM*STUFE2_P/temprpm;
 				break;
-				case 3: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE3_P/temprpm;
+				case 3: throttleControl.current_next_new = AMPS_PER_WATTS_AND_ERPM*STUFE3_P/temprpm;
 				break;
-				case 4: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE4_P/temprpm;
+				case 4: throttleControl.current_next_new = AMPS_PER_WATTS_AND_ERPM*STUFE4_P/temprpm;
 				break;
-				case 5: throttleControl.current_next = AMPS_PER_WATTS_AND_ERPM*STUFE5_P/temprpm;
+				case 5: throttleControl.current_next_new = AMPS_PER_WATTS_AND_ERPM*STUFE5_P/temprpm;
 				break;
-				default: throttleControl.current_next = 0.0;
+				default: throttleControl.current_next_new = 0.0;
 				break;
 			}
 
 			//Speed-Limit:
-			if(pipapo == false)
-			{
-				throttleControl.current_next = throttleControl.current_next*speedReg.vreg_out_filtered;
-			}
+			throttleControl.current_next_new = throttleControl.current_next_new*speedReg.vreg_out_filtered;
 
 			  // Unterspannungsgrenze
 			#ifndef UNDERVOLTAGE_LIMIT_BY_VESC
-			  throttleControl.current_next = throttleControl.current_next * undervoltageReg.reg_out_filtered;
+			  throttleControl.current_next_new = throttleControl.current_next_new * undervoltageReg.reg_out_filtered;
 			#endif
 
 			// prevent negative current
-			 if(throttleControl.current_next < 0.0)
+			 if(throttleControl.current_next_new < 0.0)
 			 {
-				 throttleControl.current_next = 0.0;
+				 throttleControl.current_next_new = 0.0;
 			 }
 			 // upper abs-current-limit:
-			 if(throttleControl.current_next > ABS_MAX_CURRENT)
+			 if(throttleControl.current_next_new > ABS_MAX_CURRENT)
 			 {
-				 throttleControl.current_next = ABS_MAX_CURRENT;
+				 throttleControl.current_next_new = ABS_MAX_CURRENT;
 			 }
 
 			 //Maximale Stromsteigung beachten
-			 if((throttleControl.current_next - throttleControl.current_now) > MAX_CURRENT_RAMP_POS )
+			/* if((throttleControl.current_next_new - throttleControl.current_now) > MAX_CURRENT_RAMP_POS )
 			 {
-				 throttleControl.current_next = throttleControl.current_now + MAX_CURRENT_RAMP_POS;
+				 // alte Version mit Anstiegsbegrenzung
+				throttleControl.current_next_new = throttleControl.current_now + MAX_CURRENT_RAMP_POS;
 			 }
 			 //Maximale negative Stromsteigung beachten
-			 else if ((throttleControl.current_now - throttleControl.current_next) > MAX_CURRENT_RAMP_NEG)
+			 else if ((throttleControl.current_now - throttleControl.current_next_new) > MAX_CURRENT_RAMP_NEG)
 			 {
-				 throttleControl.current_next = throttleControl.current_now - MAX_CURRENT_RAMP_NEG;
-			 }
+				throttleControl.current_next_new = throttleControl.current_now - MAX_CURRENT_RAMP_NEG;
+			 }*/
 	  	  }
 
 		  //not pedaling
 		  else
 		  {
-			throttleControl.current_next = 0.0;
+			throttleControl.current_next_new = 0.0;
 			notPedalingCounter++;
 		  }
+
+		  	// hier lieber PT1-Verhalten!
+			throttleControl.current_next_up_int = throttleControl.current_next_up_int + throttleControl.current_next_new - throttleControl.current_next_up_filt;
+			throttleControl.current_next_up_filt = throttleControl.current_next_up_int / 10;
+
+			throttleControl.current_next_down_int = throttleControl.current_next_down_int + throttleControl.current_next_new - throttleControl.current_next_down_filt;
+			throttleControl.current_next_down_filt = throttleControl.current_next_down_int / 2;
+
+			// slow PT1-Filter for positive Current-Gradients
+			if((throttleControl.current_next_new - throttleControl.current_now) > 0)
+			{
+				throttleControl.current_next_new = throttleControl.current_next_up_filt;
+			}
+			// fast PT1-Filter for neg. current-gradients
+			else
+			{
+				throttleControl.current_next_new = throttleControl.current_next_down_filt;
+			}
+
+			//Minimum current
+			if(throttleControl.current_next_new < 1.0)
+			{
+				throttleControl.current_next_new = 0.0;
+			}
+
 		  if(controllerData.reverseDirection)
 		  {
-			VescUartSetCurrent(-1*throttleControl.current_next);
+			VescUartSetCurrent(-1*throttleControl.current_next_new);
 
 		  }
 		  else
 		  {
-		  	VescUartSetCurrent(throttleControl.current_next);
+		  	VescUartSetCurrent(throttleControl.current_next_new);
 		  }
 
-		  throttleControl.current_now = throttleControl.current_next;
+		  throttleControl.current_now = throttleControl.current_next_new;
 
 	  }
 	  else
@@ -1585,7 +1629,7 @@ void loop() {
 	{
 		// Write-Display-Routine
 		if((display.displayUpdateMode == 0) 
-		|| (display.displayUpdateMode == 1 && (throttleControl.current_next == 0.0) && (throttleControl.current_now == 0.0)) 
+		|| (display.displayUpdateMode == 1 && (throttleControl.current_next_new == 0.0) && (throttleControl.current_now == 0.0)) 
 		|| (display.displayUpdateMode == 2 && (throttleControl.current_now == 0.0) && (pasData.pedaling == false)))
 		{
 			lastDispLoop = millis();

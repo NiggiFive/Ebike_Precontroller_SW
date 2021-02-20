@@ -19,6 +19,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include "buffer.h"
 #include "crc.h"
 #include <hardwareSerial.h>
+#include "config.h"
 
 bool UnpackPayload(uint8_t* message, int lenMes, uint8_t* payload, int lenPa);
 bool ProcessReadPacket(uint8_t* message, bldcMeasure& values, int len);
@@ -35,8 +36,11 @@ int ReceiveUartMessage(uint8_t* payloadReceived, int num) {
 	uint8_t messageReceived[256];
 	uint16_t lenPayload = 0;
 	HardwareSerial *serial;
-	//serial=&Serial;
-	serial = &Serial1;
+	#if HW_VERSION == 3
+		serial = &Serial1;
+	#else
+		serial=&Serial;
+	#endif
 	uint32_t timeout = millis() + 50; // Defining the timestamp for timeout (100ms before timeout)
 
 	while ( millis() < timeout && messageRead == false) {
@@ -154,10 +158,13 @@ int PackSendPayload(uint8_t* payload, int lenPay, int num) {
 	DEBUGSERIAL.print("UART package send: "); SerialPrint(messageSend, count);
 
 #endif // DEBUG
-
-
-	//HardwareSerial *serial=&Serial;
-	HardwareSerial *serial = &Serial1;
+	
+	#if HW_VERSION == 3
+		HardwareSerial *serial = &Serial1;
+	#else
+		HardwareSerial *serial=&Serial;
+	
+	#endif
 
 	//Sending package
 	serial->write(messageSend, count);

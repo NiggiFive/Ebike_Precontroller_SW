@@ -21,7 +21,8 @@
 //#define UNDERVOLTAGE_LIMIT_BY_VESC
 
 // Reverse Up/Down-Buttons
-//#define REVERSE_BUTTONS
+//Tanjas Rad: reverse
+#define REVERSE_BUTTONS
 
 //UART-Speed for VESC-Communication:
 //#define VESC_BAUDRATE 19200
@@ -60,13 +61,21 @@
 #define RADUMFANG			2.130
 
 // Maximale Geschwindigkeit fuer Unterstuetzung
-#define MAX_SPEED_KMH 		27
+#define VMAX 		27
 //Geschwindigkeit ab der der Strom zurueckgenommen wird
 #define VGRENZ				23
-#define MAX_RPM 			(MAX_SPEED_KMH*1000)/(RADUMFANG*60)
+#define MAX_RPM 			(VMAX*1000)/(RADUMFANG*60)
 #define MAX_ERPM			MAX_RPM*MOTOR_POLE_PAIRS*MOTOR_GEAR_RATIO
 #define RPM_GRENZ			(VGRENZ*1000)/(RADUMFANG*60)
 #define ERPM_GRENZ			RPM_GRENZ*MOTOR_POLE_PAIRS*MOTOR_GEAR_RATIO
+
+
+#define VGRENZ2             33
+#define VMAX2               40
+#define MAX_RPM2            (VMAX2*1000)/(RADUMFANG*60) 
+#define MAX_ERPM2			MAX_RPM2*MOTOR_POLE_PAIRS*MOTOR_GEAR_RATIO
+#define RPM_GRENZ2			(VGRENZ2*1000)/(RADUMFANG*60)
+#define ERPM_GRENZ2			RPM_GRENZ2*MOTOR_POLE_PAIRS*MOTOR_GEAR_RATIO
 
 //Max ERPM (f�r VESC Konfiguration):
 //f�r VMAX = 27km/h
@@ -92,7 +101,7 @@
 
 // Werte fuer Pedalsensierung:
 #define DOUBLE_HALL	1			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
-#define PAS_MAGNETS 8			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12
+#define PAS_MAGNETS 8			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12, bei Tanjas 8
 #define MIN_CADENCE	20			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
 
 #define CONV_PAS_TIME_TO_CADENCE 60000/PAS_MAGNETS
@@ -110,12 +119,19 @@
 
 #define ANZAHL_STUFEN	5
 
-// Power-Modes for VESC:
+// Power-Steps for VESC:
+/* Mamas Rad:
 #define STUFE5_P 500
 #define STUFE4_P 350
 #define STUFE3_P 200
 #define STUFE2_P 100
-#define STUFE1_P 70
+#define STUFE1_P 70*/
+
+#define STUFE5_P 250
+#define STUFE4_P 160
+#define STUFE3_P 110
+#define STUFE2_P 70
+#define STUFE1_P 40
 
 
 // Geschwindigkeits-Stufen Ausgangsspannungen fuer Ku-63
@@ -146,6 +162,9 @@
 #elif HW_VERSION == 2 
     #define RUPPER_BATSENSE 47.0
     #define RLOWER_BATSENSE 4.7
+#elif HW_VERSION == 3
+    #define RUPPER_BATSENSE 22.0
+    #define RLOWER_BATSENSE 2.2
 #endif
 
 #define REFVOLT 5.00
