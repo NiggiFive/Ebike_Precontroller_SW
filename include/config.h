@@ -12,6 +12,14 @@
 
 // Number of Modes the Display can show:
 #define DISPLAY_SCREENS	7
+
+// Display Modes: 1 = "Simple", 2 = "Debugging"
+#define SIMPLE_DISPLAY
+
+#ifdef SIMPLE_DISPLAY
+    #undef DISPLAY_SCREENS
+    #define DISPLAY_SCREENS 3
+#endif
 	
 // 0 = always Update, 1 = dont update when motoring, 2 = dont update when motoring or pedaling
 #define DEFAULT_DISPLAYUPDATEMODE 0
@@ -22,7 +30,7 @@
 
 // Reverse Up/Down-Buttons
 //Tanjas Rad: reverse
-#define REVERSE_BUTTONS
+//#define REVERSE_BUTTONS
 
 //UART-Speed for VESC-Communication:
 //#define VESC_BAUDRATE 19200
@@ -33,7 +41,7 @@
 // 1 for first Version
 // 2 for 2nd version
 // 3 for Version with proMicro-Hardwiring
-#define HW_VERSION 	3
+#define HW_VERSION 	2
 
 // Motor Data
 //Anzahl Polpaare
@@ -77,19 +85,29 @@
 #define RPM_GRENZ2			(VGRENZ2*1000)/(RADUMFANG*60)
 #define ERPM_GRENZ2			RPM_GRENZ2*MOTOR_POLE_PAIRS*MOTOR_GEAR_RATIO
 
+
+#define ERPM_TO_VELOCITY    RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000
+
 //Max ERPM (f�r VESC Konfiguration):
 //f�r VMAX = 27km/h
 //26 Zoll : ERPM_max = 9340
 //28 Zoll : ERPM_max = 9230
 
-// Undervoltage-Grenzen fuer Batterie:
-#define UNDERVOLTAGE_12S 3.3*12.0
-#define UNDERVOLTAGE_10S 3.25*10.0
-#define UNDERVOLTAGE_9S 3.3*9.0
-#define UNDERVOLTAGE_6S 3.3*6.0
-#define UNDERVOLTAGE_3S	3.3*3.0
+// Possible Cell-Numbers. For Auto-Battery-Detection
+#define BAT_12S
+#define BAT_10S
+#define BAT_9S
+#define BAT_6S
+#define BAT_3S
 
-// Grenze zur Erkennung 6s vs. 9s vs. 12s Batterie
+// Undervoltage-Threshold for different battery-configs:
+#define UNDERVOLTAGE_12S    3.3*12.0
+#define UNDERVOLTAGE_10S    3.25*10.0
+#define UNDERVOLTAGE_9S     3.3*9.0
+#define UNDERVOLTAGE_6S     3.3*6.0
+#define UNDERVOLTAGE_3S	    3.3*3.0
+
+// Voltage-Thresholds for batter-auto-detection
 #define BAT10S12S_GRENZE    42.0
 #define BAT9S10S_GRENZE     37.0
 #define BAT6S9S_GRENZE      26.0
@@ -100,8 +118,8 @@
 #define WIRING_RESISTANCE   0.015
 
 // Werte fuer Pedalsensierung:
-#define DOUBLE_HALL	1			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
-#define PAS_MAGNETS 8			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12, bei Tanjas 8
+#define DOUBLE_HALL	0			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
+#define PAS_MAGNETS 10			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12, bei Tanjas 8
 #define MIN_CADENCE	20			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
 
 #define CONV_PAS_TIME_TO_CADENCE 60000/PAS_MAGNETS
@@ -117,21 +135,21 @@
 // Zeitfenster fuer Tastereingabe in ms
 #define TASTER_TIME_WINDOW 500
 
-#define ANZAHL_STUFEN	5
+#define NUMBER_OF_STEPS 	5
 
 // Power-Steps for VESC:
-/* Mamas Rad:
+// Mamas Rad:
 #define STUFE5_P 500
 #define STUFE4_P 350
 #define STUFE3_P 200
 #define STUFE2_P 100
-#define STUFE1_P 70*/
+#define STUFE1_P 70
 
-#define STUFE5_P 250
+/*#define STUFE5_P 250
 #define STUFE4_P 160
 #define STUFE3_P 110
 #define STUFE2_P 70
-#define STUFE1_P 40
+#define STUFE1_P 40*/
 
 
 // Geschwindigkeits-Stufen Ausgangsspannungen fuer Ku-63

@@ -93,7 +93,8 @@ struct batteryDataStruct
 	uint8_t numberOfCells = 9;
 	float vBatArdu = 0.0;
 	float vBatCorrected = 0.0;
-	float avgCellVolt = 0.0;
+	uint16_t avgCellmV = 0;
+	//float avgCellVolt = 0.0;
 	uint8_t SOC = 0;
 	int16_t batteryPower = 0.0;
 	float undervoltageThreshold;
@@ -441,9 +442,9 @@ void interpretInputs()
 			  {
 				  //Unterstuetzung hochschalten
 				  throttleControl.aktStufe = throttleControl.aktStufe+switchRed_edges;
-				  if(throttleControl.aktStufe>ANZAHL_STUFEN)
+				  if(throttleControl.aktStufe>NUMBER_OF_STEPS)
 				  {
-					  throttleControl.aktStufe = ANZAHL_STUFEN;
+					  throttleControl.aktStufe = NUMBER_OF_STEPS;
 				  }
 			  }
 			  if(switchGreen_edges>0)
@@ -466,7 +467,7 @@ void interpretInputs()
 // Batteriespannung auslesen und umrechnen
 void readVoltagesArdu()
 {
-  int temp = analogRead(INPUT_BATSENSE);	// analogRead dauert ca. 100�s
+  int temp = analogRead(INPUT_BATSENSE);	// analogRead dauert ca. 100us
   batteryData.vBatArdu = (float)((temp*REFVOLT/1024.0)*(RUPPER_BATSENSE+RLOWER_BATSENSE)/RLOWER_BATSENSE);
   temp = analogRead(INPUT_VARDUSENSE);
   controllerData.vInArdu = (float)((temp*REFVOLT/1024.0)*(RUPPER_VARDU+RLOWER_VARDU)/RLOWER_VARDU);
@@ -520,63 +521,65 @@ void calculateSOC()
 	{
 		if(batteryData.numberOfCells == 0)
 		{
-			batteryData.avgCellVolt = 0;
+			batteryData.avgCellmV = 0;
 		}
 		else
 		{
-			batteryData.avgCellVolt = batteryData.vBatCorrected/batteryData.numberOfCells;
+			batteryData.avgCellmV = 1000.0*batteryData.vBatCorrected/batteryData.numberOfCells;
 		}
 	}
 	else
 	{
 		if(batteryData.numberOfCells == 0)
 		{
-			batteryData.avgCellVolt = 0;
+			batteryData.avgCellmV = 0;
 		}
 		else
 		{
-			batteryData.avgCellVolt = batteryData.vBatArdu/batteryData.numberOfCells;
+			batteryData.avgCellmV = 1000.0*batteryData.vBatArdu/batteryData.numberOfCells;
 		}
 	}
+
 	if(batteryData.numberOfCells == 10)
 	{
-		if(batteryData.avgCellVolt > 4.10)
+		#ifdef BAT_10S
+		if(batteryData.avgCellmV > 4100)
 		{
 			batteryData.SOC = 100;
 		}
-		else if (batteryData.avgCellVolt >4.02)
+		/*else if (batteryData.avgCellmV >4020)
 		{
 			batteryData.SOC = 90;
-		}
-		else if (batteryData.avgCellVolt >3.94)
+		}*/
+		else if (batteryData.avgCellmV >3940)
 		{
 			batteryData.SOC = 80;
 		}
-		else if (batteryData.avgCellVolt >3.86)
+		/*else if (batteryData.avgCellmV >3860)
 		{
 			batteryData.SOC = 70;
-		}
-		else if (batteryData.avgCellVolt >3.78)
+		}*/
+		else if (batteryData.avgCellmV >3780)
 		{
 			batteryData.SOC = 60;
 		}
-		else if (batteryData.avgCellVolt >3.70)
+		/*else if (batteryData.avgCellmV >3700)
 		{
 			batteryData.SOC = 50;
-		}
-		else if (batteryData.avgCellVolt >3.62)
+		}*/
+		else if (batteryData.avgCellmV >3620)
 		{
 			batteryData.SOC = 40;
 		}
-		else if (batteryData.avgCellVolt >3.54)
+		else if (batteryData.avgCellmV >3540)
 		{
 			batteryData.SOC = 30;
 		}
-		else if (batteryData.avgCellVolt >3.46)
+		else if (batteryData.avgCellmV >3460)
 		{
 			batteryData.SOC = 20;
 		}
-		else if (batteryData.avgCellVolt >3.38)
+		else if (batteryData.avgCellmV >3380)
 		{
 			batteryData.SOC = 10;
 		}
@@ -584,46 +587,48 @@ void calculateSOC()
 		{
 			batteryData.SOC = 0;
 		}
+		#endif
 	}
+
 	else
 	{
-		if(batteryData.avgCellVolt > 4.18)
+		if(batteryData.avgCellmV > 4180)
 		{
 			batteryData.SOC = 100;
 		}
-		else if (batteryData.avgCellVolt >4.08)
+		/*else if (batteryData.avgCellmV >4080)
 		{
 			batteryData.SOC = 90;
-		}
-		else if (batteryData.avgCellVolt >3.98)
+		}*/
+		else if (batteryData.avgCellmV >3980)
 		{
 			batteryData.SOC = 80;
 		}
-		else if (batteryData.avgCellVolt >3.93)
+		/*else if (batteryData.avgCellmV >3930)
 		{
 			batteryData.SOC = 70;
-		}
-		else if (batteryData.avgCellVolt >3.86)
+		}*/
+		else if (batteryData.avgCellmV >3860)
 		{
 			batteryData.SOC = 60;
 		}
-		else if (batteryData.avgCellVolt >3.81)
+		/*else if (batteryData.avgCellmV >3810)
 		{
 			batteryData.SOC = 50;
-		}
-		else if (batteryData.avgCellVolt >3.78)
+		}*/
+		else if (batteryData.avgCellmV >3780)
 		{
 			batteryData.SOC = 40;
 		}
-		else if (batteryData.avgCellVolt >3.76)
+		else if (batteryData.avgCellmV >3760)
 		{
 			batteryData.SOC = 30;
 		}
-		else if (batteryData.avgCellVolt >3.73)
+		else if (batteryData.avgCellmV >3730)
 		{
 			batteryData.SOC = 20;
 		}
-		else if (batteryData.avgCellVolt >3.68)
+		else if (batteryData.avgCellmV >3680)
 		{
 			batteryData.SOC = 10;
 		}
@@ -678,11 +683,72 @@ void refreshu8x8Display()
 		u8x8.clearDisplay();
 		display.displayScreen++;
 		display.RowCounter = 0;
-		if(display.displayScreen >=DISPLAY_SCREENS)
+		if(display.displayScreen >= DISPLAY_SCREENS)
 		{
 			display.displayScreen = 0;
 		}
 	}
+	#ifdef SIMPLE_DISPLAY
+	switch (display.displayScreen)
+	{
+		case 0:
+		u8x8.setCursor(1,2);
+
+		if(batteryData.SOC == 0)
+		{
+			u8x8.print(" ");
+		}
+		u8x8.print(batteryData.SOC);
+		u8x8.print("%");
+
+		u8x8.setCursor(13,0);
+		u8x8.print(throttleControl.aktStufe);
+		break;
+
+		case 1:	
+		u8x8.setCursor(0,0);
+		if(vesc_connected)
+		{
+			u8x8.print((int)batteryData.vBatCorrected);
+		}
+		else
+		{
+			u8x8.print((int)batteryData.vBatArdu);
+		}
+		u8x8.print(" ");
+
+		u8x8.print(batteryData.numberOfCells);
+		if(batteryData.numberOfCells < 10)
+		{
+			u8x8.print("s");
+		}
+		u8x8.setCursor(1,4);
+		if(batteryData.batteryPower < 100.0)
+		{
+			u8x8.print(" ");
+			if(batteryData.batteryPower < 10.0)
+			{
+				u8x8.print(" ");
+			}
+		}
+		u8x8.print(batteryData.batteryPower);
+		u8x8.print("W");
+		break;
+
+		case 2:
+		if(display.printedFlag == false)
+		{
+			u8x8.clearDisplay();
+			display.printedFlag = true;
+		}
+		break;
+
+		default:
+		break;
+	}
+
+
+	#else
 	uint32_t tempTime = millis();
 	switch (display.displayScreen)
 	{
@@ -1193,6 +1259,7 @@ void refreshu8x8Display()
 	  {
 		  longestDispWrtTime = DispWrtTime;
 	  }
+	  #endif
 }
 #endif
 
@@ -1268,12 +1335,17 @@ void setup()
 
 #ifdef DISPLAY_CONNECTED
     u8x8.begin();
-
-    u8x8.setFont(u8x8_font_courB18_2x3_r);
+	#ifdef SIMPLE_DISPLAY
+		//biggest font available?
+		//u8x8.setFont(u8x8_font_inb33_3x6_r); -> needs too much flash
+		u8x8.setFont(u8x8_font_courB24_3x4_r);
+		//u8x8.setFont(u8x8_font_inb21_2x4_r);
+	#else
+    	u8x8.setFont(u8x8_font_courB18_2x3_r);
+	#endif
     u8x8.home();
     u8x8.setCursor(0,2);
     //u8x8.setFont(u8x8_font_8x13_1x2_r);
-	//u8x8.setFont(u8x8_font_profont29_2x3_r);
 	//u8x8.setFont(u8x8_font_inb33_3x6_r);
 	//u8x8.setFont(u8x8_font_8x13_1x2_r);
 #endif
@@ -1291,11 +1363,13 @@ void setup()
     	batteryData.numberOfCells = 12;
     	batteryData.undervoltageThreshold = UNDERVOLTAGE_12S;
     }
-	else if (batteryData.vBatArdu >BAT9S10S_GRENZE)
-	{
-		batteryData.numberOfCells = 10;
-		batteryData.undervoltageThreshold = UNDERVOLTAGE_10S;
-	}
+	#ifdef BAT_10S
+		else if (batteryData.vBatArdu >BAT9S10S_GRENZE)
+		{
+			batteryData.numberOfCells = 10;
+			batteryData.undervoltageThreshold = UNDERVOLTAGE_10S;
+		}
+	#endif
     else if (batteryData.vBatArdu > BAT6S9S_GRENZE)
 	{
 		batteryData.numberOfCells = 9;
@@ -1352,10 +1426,10 @@ void setup()
 			Serial.end();
 		#endif
 		#ifdef DISPLAY_CONNECTED
-			u8x8.clearDisplay();
-			u8x8.home();
-	    	u8x8.print(F("PWM-Mode"));
-			delay(1000);
+			//u8x8.clearDisplay();
+			//u8x8.home();
+	    	//u8x8.print(F("PWM-Mode"));
+			//delay(1000);
 			u8x8.clear();
 		#endif    
 
@@ -1382,7 +1456,7 @@ void CtrlLoop()
 
 			 //Geschwindigkeit berechnen aus ausgelesener RPM
 			 
-			speedReg.velocity = vescValues.rpm*RADUMFANG*60/MOTOR_POLE_PAIRS/MOTOR_GEAR_RATIO/1000;
+			speedReg.velocity = vescValues.rpm*ERPM_TO_VELOCITY;
 			if(controllerData.reverseDirection == true)
 			{
 				speedReg.velocity = -1 * speedReg.velocity;
@@ -1538,6 +1612,10 @@ void CtrlLoop()
 			if(throttleControl.current_next_new < 1.0)
 			{
 				throttleControl.current_next_new = 0.0;
+
+				//reset also both PT1´s
+				throttleControl.current_next_up_int = 0.0;
+				throttleControl.current_next_down_int = 0.0;
 			}
 
 		  if(controllerData.reverseDirection)
@@ -1652,7 +1730,16 @@ void loop() {
 		odometry.kmTripMotor = odometry.kmTripMotor/1000;
 
 		odometry.minutesTrip = millis()/60000;
-		calculateSOC();
+		
+		// if simple-display is selected, only update SoC while not pedaling!
+		#ifdef SIMPLE_DISPLAY
+			if(pasData.pedaling == false)
+			{
+				calculateSOC();
+			}
+		#else
+			calculateSOC();
+		#endif
 
 		// bei bedarf Unterstuetzung auf default zur�ckstellen nach gewisser Zeit
 		/*if(notPedalingCounter >= TIME_TO_RESET_AFTER_PEDAL_STOP && throttleControl.aktStufe > DEFAULT_STUFE)
