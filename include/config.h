@@ -30,18 +30,16 @@
 
 // Reverse Up/Down-Buttons
 //Tanjas Rad: reverse
-//#define REVERSE_BUTTONS
+#define REVERSE_BUTTONS
 
 //UART-Speed for VESC-Communication:
-//#define VESC_BAUDRATE 19200
-//#define VESC_BAUDRATE 28800
 //#define VESC_BAUDRATE 115200
 #define VESC_BAUDRATE 	57600
 
 // 1 for first Version
 // 2 for 2nd version
 // 3 for Version with proMicro-Hardwiring
-#define HW_VERSION 	2
+#define HW_VERSION 	3
 
 // Motor Data
 //Anzahl Polpaare
@@ -95,17 +93,20 @@
 
 // Possible Cell-Numbers. For Auto-Battery-Detection
 #define BAT_12S
-#define BAT_10S
+//#define BAT_10S
 #define BAT_9S
 #define BAT_6S
 #define BAT_3S
 
+#define UNDERVOLTAGE_LIPO    3.45
+#define UNDERVOLTAGE_LIION   3.3
+
 // Undervoltage-Threshold for different battery-configs:
-#define UNDERVOLTAGE_12S    3.3*12.0
-#define UNDERVOLTAGE_10S    3.25*10.0
-#define UNDERVOLTAGE_9S     3.3*9.0
-#define UNDERVOLTAGE_6S     3.3*6.0
-#define UNDERVOLTAGE_3S	    3.3*3.0
+#define UNDERVOLTAGE_12S    12.0*UNDERVOLTAGE_LIPO
+#define UNDERVOLTAGE_10S    10.0*UNDERVOLTAGE_LIION
+#define UNDERVOLTAGE_9S     9.0*UNDERVOLTAGE_LIPO
+#define UNDERVOLTAGE_6S     6.0*UNDERVOLTAGE_LIPO
+#define UNDERVOLTAGE_3S	    3.0*UNDERVOLTAGE_LIPO
 
 // Voltage-Thresholds for batter-auto-detection
 #define BAT10S12S_GRENZE    42.0
@@ -118,9 +119,9 @@
 #define WIRING_RESISTANCE   0.015
 
 // Werte fuer Pedalsensierung:
-#define DOUBLE_HALL	0			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
-#define PAS_MAGNETS 10			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12, bei Tanjas 8
-#define MIN_CADENCE	20			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
+#define DOUBLE_HALL	1			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
+#define PAS_MAGNETS 8			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12, bei Tanjas 8
+#define MIN_CADENCE	25			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
 
 #define CONV_PAS_TIME_TO_CADENCE 60000/PAS_MAGNETS
 

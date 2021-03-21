@@ -692,47 +692,60 @@ void refreshu8x8Display()
 	switch (display.displayScreen)
 	{
 		case 0:
-		u8x8.setCursor(1,2);
+		if(display.RowCounter == 0)
+		{
+			u8x8.setCursor(1,2);
 
-		if(batteryData.SOC == 0)
-		{
-			u8x8.print(" ");
-		}
-		u8x8.print(batteryData.SOC);
-		u8x8.print("%");
-
-		u8x8.setCursor(13,0);
-		u8x8.print(throttleControl.aktStufe);
-		break;
-
-		case 1:	
-		u8x8.setCursor(0,0);
-		if(vesc_connected)
-		{
-			u8x8.print((int)batteryData.vBatCorrected);
-		}
-		else
-		{
-			u8x8.print((int)batteryData.vBatArdu);
-		}
-		u8x8.print(" ");
-
-		u8x8.print(batteryData.numberOfCells);
-		if(batteryData.numberOfCells < 10)
-		{
-			u8x8.print("s");
-		}
-		u8x8.setCursor(1,4);
-		if(batteryData.batteryPower < 100.0)
-		{
-			u8x8.print(" ");
-			if(batteryData.batteryPower < 10.0)
+			if(batteryData.SOC == 0)
 			{
 				u8x8.print(" ");
 			}
+			u8x8.print(batteryData.SOC);
+			u8x8.print("%");
 		}
-		u8x8.print(batteryData.batteryPower);
-		u8x8.print("W");
+		else if (display.RowCounter == 1)
+		{
+			u8x8.setCursor(13,0);
+			u8x8.print(throttleControl.aktStufe);
+			display.RowCounter = 5;
+		}
+		break;
+
+		case 1:	
+		if(display.RowCounter == 0)
+		{
+			u8x8.setCursor(0,0);
+			if(vesc_connected)
+			{
+				u8x8.print((int)batteryData.vBatCorrected);
+			}
+			else
+			{
+				u8x8.print((int)batteryData.vBatArdu);
+			}
+			u8x8.print(" ");
+			u8x8.print(batteryData.numberOfCells);
+			if(batteryData.numberOfCells < 10)
+			{
+				u8x8.print("s");
+			}
+		}
+		else if(display.RowCounter == 1)
+		{
+			u8x8.setCursor(1,4);
+			if(batteryData.batteryPower < 100.0)
+			{
+				u8x8.print(" ");
+				if(batteryData.batteryPower < 10.0)
+				{
+					u8x8.print(" ");
+				}
+			}
+			u8x8.print(batteryData.batteryPower);
+			u8x8.print("W");
+			display.RowCounter = 5;
+		}
+
 		break;
 
 		case 2:
@@ -1246,6 +1259,13 @@ void refreshu8x8Display()
 	default: break;
 	}
 
+	DispWrtTime = millis()-tempTime;
+	if(DispWrtTime > longestDispWrtTime)
+	{
+		longestDispWrtTime = DispWrtTime;
+	}
+	#endif
+
 	  if(display.RowCounter < 5)
 	  {
 		  display.RowCounter++;
@@ -1254,12 +1274,6 @@ void refreshu8x8Display()
 	  {
 		  display.RowCounter = 0;
 	  }
-	  DispWrtTime = millis()-tempTime;
-	  if(DispWrtTime > longestDispWrtTime)
-	  {
-		  longestDispWrtTime = DispWrtTime;
-	  }
-	  #endif
 }
 #endif
 
