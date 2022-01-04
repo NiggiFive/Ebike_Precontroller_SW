@@ -1,6 +1,6 @@
 
+#include <Arduino.h>
 #include "config.h"
-#include "Arduino.h"
 
 #include "MemoryFree.h"
 
@@ -36,7 +36,7 @@
 
 #define ULTRA_SLOW_TIMER 1000
 
-// Entprellzeit für PAS (und evtl. Taster) in ms
+// Entprellzeit fï¿½r PAS (und evtl. Taster) in ms
 #define ENTPRELLZEIT 5
 
 unsigned long milliseconds;
@@ -195,9 +195,9 @@ void pas_ISR()
 	}
 	else
 	{
-		// mit Double-Hall-Sensor muss man nur die Cadence überprüfen
+		// mit Double-Hall-Sensor muss man nur die Cadence ï¿½berprï¿½fen
 		//if(pasData.cadence>=MIN_CADENCE)
-		//statt der kadenz kann man auch die PAS-Time überprüfen, dadurch spart man sich die Berechnung der Kadenz (division)
+		//statt der kadenz kann man auch die PAS-Time ï¿½berprï¿½fen, dadurch spart man sich die Berechnung der Kadenz (division)
 		if(pasData.pasTimeGesamt <= PAS_TIMEOUT)
 		{
 			pasData.pedaling = true;
@@ -223,7 +223,7 @@ void checkTaster()
 		switchRed_edge_detected = true;
 	}
 
-	//keine Flanke erkannt aber noch auf low-level -> flanke bestätigen (Entprellung)
+	//keine Flanke erkannt aber noch auf low-level -> flanke bestï¿½tigen (Entprellung)
 	else if (temp == 0 && switchRed_state == 0)
 	{
 		if(switchRed_edge_detected == true && switchRedGreen_ready == false)
@@ -247,7 +247,7 @@ void checkTaster()
 		switchGreen_edge_detected = true;
 	}
 
-	//keine Flanke erkannt aber noch auf low-level -> flanke bestätigen (Entprellung)
+	//keine Flanke erkannt aber noch auf low-level -> flanke bestï¿½tigen (Entprellung)
 	else if (temp == 0 && switchGreen_state == 0)
 	{
 		if(switchGreen_edge_detected == true && switchRedGreen_ready == false)
@@ -279,7 +279,7 @@ void checkTaster()
 		taster1.edge_detected = true;
 	}
 
-	//keine Flanke erkannt aber noch auf low-level -> flanke bestätigen (Entprellung)
+	//keine Flanke erkannt aber noch auf low-level -> flanke bestï¿½tigen (Entprellung)
 	else if (temp == 0 && taster1.state == 0)
 	{
 		if(taster1.edge_detected == true && taster1.ready == false)
@@ -356,7 +356,7 @@ void interpretInputs()
 	{
 		if(taster1.edges == 1)
 		{
-			// Unterstützung an/ausschalten
+			// Unterstï¿½tzung an/ausschalten
 			throttleControl.throttleON = !throttleControl.throttleON;
 		}
 		else if (taster1.edges == 2)
@@ -386,7 +386,7 @@ void interpretInputs()
 // Batteriespannung auslesen und umrechnen
 void readBattVoltArdu()
 {
-  int temp = analogRead(INPUT_BATSENSE);	// analogRead dauert ca. 100µs
+  int temp = analogRead(INPUT_BATSENSE);	// analogRead dauert ca. 100ï¿½s
   batteryData.voltageArdu = (float)((temp*REFVOLT/1024.0)*(RUPPER+RLOWER)/RLOWER);
 }
 
@@ -656,7 +656,7 @@ void loop() {
 		calculateSOC();
 		writeSerialData();
 
-		// bei bedarf Unterstuetzung auf default zurückstellen nach gewisser Zeit
+		// bei bedarf Unterstuetzung auf default zurï¿½ckstellen nach gewisser Zeit
 		if(notPedalingCounter >= TIME_TO_RESET_AFTER_PEDAL_STOP && throttleControl.aktStufe > DEFAULT_STUFE)
 		{
 			throttleControl.aktStufe = DEFAULT_STUFE;
