@@ -1378,22 +1378,26 @@ void setup()
     	batteryData.undervoltageThreshold = UNDERVOLTAGE_12S;
     }
 	#ifdef BAT_10S
-		else if (batteryData.vBatArdu >BAT9S10S_GRENZE)
+		else if (batteryData.vBatArdu >BAT6S9S_GRENZE)
 		{
 			batteryData.numberOfCells = 10;
 			batteryData.undervoltageThreshold = UNDERVOLTAGE_10S;
 		}
 	#endif
+	#ifdef BAT_9S
     else if (batteryData.vBatArdu > BAT6S9S_GRENZE)
 	{
 		batteryData.numberOfCells = 9;
 		batteryData.undervoltageThreshold = UNDERVOLTAGE_9S;
 	}
+	#endif
+	#ifdef BAT_6S
 	else if (batteryData.vBatArdu > BAT3S6S_GRENZE)
 	{
 		batteryData.numberOfCells = 6;
 		batteryData.undervoltageThreshold = UNDERVOLTAGE_6S;
 	}
+	#endif
 	else if (batteryData.vBatArdu > NOBAT_VOLTAGE)
 	{
 		batteryData.numberOfCells = 3;
