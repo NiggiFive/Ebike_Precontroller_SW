@@ -14,7 +14,7 @@
 #define DISPLAY_SCREENS	7
 
 // Display Modes: 1 = "Simple", 2 = "Debugging"
-#define SIMPLE_DISPLAY
+//#define SIMPLE_DISPLAY
 
 #ifdef SIMPLE_DISPLAY
     #undef DISPLAY_SCREENS
@@ -30,7 +30,8 @@
 
 // Reverse Up/Down-Buttons
 //Tanjas Rad: reverse
-#define REVERSE_BUTTONS
+//Stadtrad: don't reverse
+//#define REVERSE_BUTTONS
 
 //UART-Speed for VESC-Communication:
 //#define VESC_BAUDRATE 115200
@@ -38,7 +39,7 @@
 
 // 1 for first Version
 // 2 for 2nd version
-// 3 for Version with proMicro-Hardwiring
+// 3 for Version with proMicro-Hardwiring AND new ProMicro-HW-Version
 #define HW_VERSION 	3
 
 // Motor Data
@@ -61,10 +62,10 @@
 
 //Radumfang in Metern
 //fuer 28 Zoll (Schwalbe Marathon)
-//#define RADUMFANG 			2.155
+#define RADUMFANG 			2.155
 
 //fuer 26 Zoll (Big Apple 2,15)
-#define RADUMFANG			2.130
+//#define RADUMFANG			2.130
 
 // Maximale Geschwindigkeit fuer Unterstuetzung
 #define VMAX 		27
@@ -92,8 +93,8 @@
 //28 Zoll : ERPM_max = 9230
 
 // Possible Cell-Numbers. For Auto-Battery-Detection
-#define BAT_12S
-//#define BAT_10S
+//#define BAT_12S
+#define BAT_10S
 #define BAT_9S
 #define BAT_6S
 #define BAT_3S
@@ -119,9 +120,10 @@
 #define WIRING_RESISTANCE   0.015
 
 // Werte fuer Pedalsensierung:
-#define DOUBLE_HALL	1			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
-#define PAS_MAGNETS 8			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12, bei Tanjas 8
+#define DOUBLE_HALL	0			// 1 for Double-Hall-Sensor, 0 for non-double-Hall
+#define PAS_MAGNETS 8			// Anzahl an Magneten in Scheibe -> bei mamas Rad sinds 10, bei meinem Reise-MTB 12, bei Tanjas 8, Stadtradt: 
 #define MIN_CADENCE	25			// Minimale Kadenz (Kurbelumdrehungen pro Minute) fuer Unterstuetzung
+#define PAS_MAGNETS_REVERSED        // in case of reversely mounted magnets the PAS Signal is inversed (Stadtfahrrad!)
 
 #define CONV_PAS_TIME_TO_CADENCE 60000/PAS_MAGNETS
 
@@ -129,6 +131,7 @@
 #define PAS_TIMEOUT CONV_PAS_TIME_TO_CADENCE/MIN_CADENCE
 
 #define PAS_FACTOR_MIN	110		// Wichtig um Vorwaerts und Rueckwaerts-Pedalieren unterscheiden zu k�nnen bei non-double-Hall-Sensoren
+#define PAS_FACTOR_MAX	70      // wenn die Magnete anders herum montiert sind kann es sein, dass man pas-faktor max statt min nehmen muss
 
 // Zeit (in 100ms-Schritten), nach der beim aufh�ren zu Pedalieren die Utnerstuetzungsstufe wieder auf den default-Wert zur�ckgesetzt wird
 #define TIME_TO_RESET_AFTER_PEDAL_STOP	100

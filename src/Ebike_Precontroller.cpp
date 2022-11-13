@@ -19,6 +19,7 @@ bldcMeasure vescValues;	// RolingGeckos Version
 	#define INPUT_TASTER1 A1
 	#define INPUT_TASTER2 A6
 	#define OUTPUT_LIGHT A9
+	#define OUTPUT_LIGHT2 A8	// only for new PCB-Version with ProMicro which has two switchable light outputs
 	#define INPUT_VARDUSENSE A3
 	#define INPUT_BATSENSE A2
 	#define LED 17
@@ -68,6 +69,7 @@ bldcMeasure vescValues;	// RolingGeckos Version
 // Debouncing-time for PAS (und evtl. Taster) in ms
 #define ENTPRELLZEIT 5
 
+//obsolete
 #define MAX_CURRENT_RAMP_POS	1.0
 #define MAX_CURRENT_RAMP_NEG	10.0
 
@@ -266,10 +268,17 @@ void pas_ISR()
 		pasData.pas_factor_int +=(pasData.pas_factor-pasData.pas_factor_filtered);
 		pasData.pas_factor_filtered = pasData.pas_factor_int >>1;
 
+		#ifndef PAS_MAGNETS_REVERSED
 		if(pasData.pasTimeGesamt <= PAS_TIMEOUT && pasData.pas_factor_filtered > PAS_FACTOR_MIN)
 		{
 			pasData.pedaling = true;
 		}
+		#else
+		if(pasData.pasTimeGesamt <= PAS_TIMEOUT && pasData.pas_factor_filtered < PAS_FACTOR_MAX)
+		{
+			pasData.pedaling = true;
+		}
+		#endif
 		else
 		{
 			pasData.pedaling = false;
@@ -277,9 +286,9 @@ void pas_ISR()
 	}
 	else
 	{
-		// mit Double-Hall-Sensor muss man nur die Cadence �berpr�fen
+		// with double-Hall sensors only cadence has to be checked. reverse pedaling leads to no PAS Signal
 		//if(pasData.cadence>=MIN_CADENCE)
-		//statt der kadenz kann man auch die PAS-Time �berpr�fen, dadurch spart man sich die Berechnung der Kadenz (division)
+		//instead of cadence: check PAS-Time, to have one division less
 		if(pasData.pasTimeGesamt <= PAS_TIMEOUT)
 		{
 			pasData.pedaling = true;
@@ -288,6 +297,7 @@ void pas_ISR()
 		{
 			pasData.pedaling = false;
 		}
+		// calculate cadence anyway for telemetry
 		pasData.kadenz = CONV_PAS_TIME_TO_CADENCE/pasData.pasTimeGesamt;
 	}
 	if(freeMemory() < minFreeRAM)
@@ -422,7 +432,8 @@ void interpretInputs()
 		else if (switchRed_edges==1 && switchGreen_edges == 2)
 		{
 			// Toggle Headlight
-			digitalWrite(OUTPUT_LIGHT, !digitalRead(OUTPUT_LIGHT));
+			//digitalWrite(OUTPUT_LIGHT, !digitalRead(OUTPUT_LIGHT));
+			digitalWrite(OUTPUT_LIGHT2, !digitalRead(OUTPUT_LIGHT2));
 		}
 
 		// Change Display-Mode
@@ -1328,8 +1339,10 @@ void setup()
 
 	//Licht-Ausgang konfigurieren
 	pinMode(OUTPUT_LIGHT, OUTPUT);
+	pinMode(OUTPUT_LIGHT2, OUTPUT);
 	//Turn on Headlight
 	digitalWrite(OUTPUT_LIGHT, HIGH);
+	digitalWrite(OUTPUT_LIGHT2, HIGH);
 
 	pinMode(LED, OUTPUT);
 	digitalWrite(LED, LOW);
